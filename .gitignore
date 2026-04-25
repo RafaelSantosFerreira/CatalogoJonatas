@@ -57,3 +57,6 @@ temp/
 
 # Vercel
 .vercel
+
+# Local run env
+run/.env.user
