@@ -40,7 +40,11 @@ export function LoginForm() {
   const handleSetup = async () => {
     setSetupLoading(true);
     try {
-      const res = await fetch("/api/setup", { method: "POST" });
+      const headers: Record<string, string> = {};
+      const setupToken = process.env.NEXT_PUBLIC_SETUP_API_TOKEN?.trim();
+      if (setupToken) headers["x-setup-token"] = setupToken;
+
+      const res = await fetch("/api/setup", { method: "POST", headers });
       let data: {
         success?: boolean;
         error?: string;

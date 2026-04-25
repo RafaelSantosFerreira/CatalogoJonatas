@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 import { getPublicSupabaseConfig } from "@/lib/supabase-env";
+import { getSetupAdminCredentials } from "@/lib/env-setup-admin";
 
 /**
  * Autentica o request via Bearer (sessão do admin) e confere papel admin em `user_roles`.
@@ -22,6 +23,11 @@ export async function getAdminUserIdFromRequest(request: Request): Promise<strin
   const { data: userData, error: userErr } = await client.auth.getUser();
   if (userErr || !userData.user) return null;
   const uid = userData.user.id;
+  const userEmail = (userData.user.email || "").trim().toLowerCase();
+  const expectedAdminEmail = getSetupAdminCredentials().email.trim().toLowerCase();
+
+  if (!userData.user.email_confirmed_at) return null;
+  if (!userEmail || userEmail !== expectedAdminEmail) return null;
 
   const { data: role, error: roleErr } = await supabaseAdmin
     .from("user_roles")
