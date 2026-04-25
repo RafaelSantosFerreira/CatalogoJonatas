@@ -15,6 +15,7 @@ const csp = [
 ].join("; ");
 
 const nextConfig: NextConfig = {
+  distDir: isDev ? ".next-dev" : ".next",
   async headers() {
     return [
       {

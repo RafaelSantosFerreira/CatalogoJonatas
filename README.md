@@ -53,7 +53,9 @@ npm install --legacy-peer-deps
 npm run dev
 ```
 
-Abra a URL exibida no terminal (normalmente `http://localhost:3000`, ou outra porta livre como `3006`/`3007`).
+Abra a URL exibida no terminal (normalmente `http://localhost:3000`).
+
+> Nota importante de estabilidade no desenvolvimento: o projeto usa diretório de build separado no modo dev (`.next-dev`) para evitar conflitos de cache com build de produção e reduzir erros de tela branca por `ENOENT`.
 
 ### Scripts disponiveis
 
@@ -83,6 +85,8 @@ Copie `.env.example` para `.env.local` e preencha.
 
 - `SETUP_ADMIN_EMAIL`
 - `SETUP_ADMIN_PASSWORD`
+- `SETUP_API_TOKEN`
+- `NEXT_PUBLIC_SETUP_API_TOKEN` (opcional; usado pelo botao de primeiro acesso no frontend)
 - `TWILIO_ACCOUNT_SID`
 - `TWILIO_AUTH_TOKEN`
 - `TWILIO_WHATSAPP_FROM`
@@ -220,6 +224,7 @@ Se falhar no envio automatico, o usuario ainda pode usar envio manual (fallback)
 - `GET /api/whatsapp-logs` - historico de logs WhatsApp
 - `POST /api/test-notifications` - teste de WhatsApp/e-mail via painel admin
 - `GET /api/supabase-ping` - diagnostico de conexao
+- `GET /api/admin-access` - validacao de sessao admin (email + confirmacao + role)
 
 ---
 
@@ -246,13 +251,14 @@ Erros comuns:
 
 ## 10) Troubleshooting rapido
 
-### Internal Server Error no dev (Next/Turbopack)
+### Internal Server Error / tela branca no dev (Next/Turbopack)
 
-Se aparecer `ENOENT` em `.next/...manifest...`:
+Se aparecer `ENOENT` em `app-build-manifest` ou `_buildManifest.js.tmp`:
 
 1. pare todos os `npm run dev`
 2. inicie apenas um `npm run dev`
-3. se persistir, remova `.next` e suba novamente
+3. se persistir, remova `.next-dev` e suba novamente
+4. confirme que a porta aberta no navegador e a mesma mostrada no terminal
 
 ### Teste admin funciona e carrinho nao
 
@@ -270,10 +276,31 @@ Normalmente:
 - Nao commite `.env.local`.
 - Regere chaves se vazarem.
 - Em producao, use senha forte no setup admin (`SETUP_ADMIN_PASSWORD`).
+- Proteja o setup inicial com `SETUP_API_TOKEN`.
+- Endpoints sensiveis contam com rate limit e validacao de payload (`zod`).
+- Headers de seguranca ativos: CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`.
+
+### Regra de acesso da area admin (atual)
+
+Para acessar recursos administrativos, o usuario precisa atender simultaneamente:
+
+- sessao valida;
+- role `admin` na tabela `user_roles`;
+- email confirmado (`email_confirmed_at`);
+- email exatamente igual ao `SETUP_ADMIN_EMAIL` configurado no servidor.
 
 ---
 
-## 12) Melhorias recomendadas para producao
+## 12) Performance (atualizacoes recentes)
+
+- Troca de imagens para `next/image` nos componentes principais (catalogo, admin, carrinho e modais).
+- Lazy loading de modais pesados para reduzir JS inicial.
+- Eliminacao de consulta N+1 no carregamento de produtos (atributos em lote com agrupamento em memoria).
+- Build de desenvolvimento isolado em `.next-dev`, reduzindo instabilidade e recarregamentos quebrados.
+
+---
+
+## 13) Melhorias recomendadas para producao
 
 - Sair do WhatsApp Sandbox e usar numero aprovado WhatsApp Business
 - Webhook de status de mensagem Twilio (queued/sent/delivered/failed)
