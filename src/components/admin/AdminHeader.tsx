@@ -1,14 +1,15 @@
 
 "use client";
 
-import { Wrench, LogOut, ShieldCheck, Package, Settings } from "lucide-react";
+import { Wrench, LogOut, ShieldCheck, Package, Settings, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/context/AuthContext";
+import { useAppDisplayName } from "@/hooks/useAppDisplayName";
 import { toast } from "sonner";
 
-type AdminTab = "products" | "settings";
+type AdminTab = "products" | "stats" | "settings";
 
 interface AdminHeaderProps {
   activeTab?: AdminTab;
@@ -17,6 +18,7 @@ interface AdminHeaderProps {
 
 export function AdminHeader({ activeTab = "products", onTabChange }: AdminHeaderProps) {
   const { user, signOut } = useAuth();
+  const appName = useAppDisplayName();
 
   const handleSignOut = async () => {
     await signOut();
@@ -32,7 +34,7 @@ export function AdminHeader({ activeTab = "products", onTabChange }: AdminHeader
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h1 className="text-lg font-bold leading-none">Ferragem Pro</h1>
+              <h1 className="text-lg font-bold leading-none">{appName}</h1>
               <ShieldCheck className="h-4 w-4 text-primary" />
             </div>
             <p className="text-xs text-muted-foreground">Painel Administrativo</p>
@@ -48,6 +50,15 @@ export function AdminHeader({ activeTab = "products", onTabChange }: AdminHeader
           >
             <Package className="h-3.5 w-3.5" />
             Produtos
+          </Button>
+          <Button
+            variant={activeTab === "stats" ? "default" : "ghost"}
+            size="sm"
+            className="gap-1.5 h-7 text-xs"
+            onClick={() => onTabChange?.("stats")}
+          >
+            <BarChart3 className="h-3.5 w-3.5" />
+            Estatísticas
           </Button>
           <Button
             variant={activeTab === "settings" ? "default" : "ghost"}
@@ -81,6 +92,16 @@ export function AdminHeader({ activeTab = "products", onTabChange }: AdminHeader
           onClick={() => onTabChange?.("products")}
         >
           <Package className="h-3.5 w-3.5" /> Produtos
+        </button>
+        <button
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
+            activeTab === "stats"
+              ? "text-primary border-b-2 border-primary"
+              : "text-muted-foreground"
+          }`}
+          onClick={() => onTabChange?.("stats")}
+        >
+          <BarChart3 className="h-3.5 w-3.5" /> Estatísticas
         </button>
         <button
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${

@@ -8,15 +8,36 @@ import { AppRootErrorBoundary } from "@/components/AppRootErrorBoundary";
 import { AuthProvider } from "@/context/AuthContext";
 import { CustomerProvider } from "@/context/CustomerContext";
 import { CartProvider } from "@/context/CartContext";
+import { supabaseAdmin, supabaseAdminConfigured } from "@/integrations/supabase/server";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
-export const metadata: Metadata = {
-  title: "Ferragem Pro — Catálogo de Produtos",
-  description: "Catálogo de produtos para ferragem com gestão completa",
-};
+const DEFAULT_APP_NAME = "Ferragem Pro";
+const DEFAULT_DESCRIPTION = "Catálogo de produtos para ferragem com gestão completa";
+
+async function getAppNameForMetadata(): Promise<string> {
+  if (!supabaseAdminConfigured) return DEFAULT_APP_NAME;
+  try {
+    const { data } = await supabaseAdmin
+      .from("company_settings")
+      .select("company_name")
+      .maybeSingle();
+    const dynamicName = (data?.company_name || "").trim();
+    return dynamicName || DEFAULT_APP_NAME;
+  } catch {
+    return DEFAULT_APP_NAME;
+  }
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const appName = await getAppNameForMetadata();
+  return {
+    title: `${appName} — Catálogo de Produtos`,
+    description: `Catálogo de produtos da ${appName}`,
+  };
+}
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (

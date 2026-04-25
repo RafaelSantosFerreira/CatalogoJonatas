@@ -210,7 +210,10 @@ export async function POST(request: Request) {
         smtp_user: user,
         smtp_password: pass,
         smtp_secure: Boolean(company.smtp_secure),
-        smtp_from_name: (company.smtp_from_name as string) || "Ferragem Pro",
+        smtp_from_name:
+          (company.smtp_from_name as string) ||
+          (company.company_name as string) ||
+          "Aplicativo",
         smtp_from_email: fromE,
       },
       toEmail

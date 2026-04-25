@@ -6,8 +6,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CartDrawer } from "@/components/CartDrawer";
+import { useAppDisplayName } from "@/hooks/useAppDisplayName";
 
 export function Header() {
+  const appName = useAppDisplayName();
+
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
@@ -16,7 +19,7 @@ export function Header() {
             <Wrench className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold leading-none">Ferragem Pro</h1>
+            <h1 className="text-lg font-bold leading-none">{appName}</h1>
             <p className="text-xs text-muted-foreground">Catálogo de Produtos</p>
           </div>
         </Link>

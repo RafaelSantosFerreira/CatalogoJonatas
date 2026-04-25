@@ -12,10 +12,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/context/AuthContext";
 import { logAppError } from "@/lib/app-logger";
+import { useAppDisplayName } from "@/hooks/useAppDisplayName";
 import { toast } from "sonner";
 
 export function LoginForm() {
   const { signIn } = useAuth();
+  const appName = useAppDisplayName();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -102,7 +104,7 @@ export function LoginForm() {
               <Wrench className="h-7 w-7" />
             </div>
             <div className="text-center">
-              <h1 className="text-2xl font-bold">Ferragem Pro</h1>
+              <h1 className="text-2xl font-bold">{appName}</h1>
               <p className="text-sm text-muted-foreground">Acesso restrito à equipe</p>
             </div>
           </Link>

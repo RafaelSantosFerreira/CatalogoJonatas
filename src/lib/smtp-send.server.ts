@@ -25,13 +25,13 @@ export async function sendSmtpTest(
       auth: { user: smtp.smtp_user, pass: smtp.smtp_password },
     });
 
-    const fromName = (smtp.smtp_from_name || "Ferragem Pro").trim() || "Ferragem Pro";
+    const fromName = (smtp.smtp_from_name || "Aplicativo").trim() || "Aplicativo";
     const fromEmail = smtp.smtp_from_email;
 
     const info = await transporter.sendMail({
       from: `${fromName} <${fromEmail}>`,
       to: toAddress,
-      subject: "Teste de e-mail — Ferragem Pro",
+      subject: `Teste de e-mail — ${fromName}`,
       text:
         "Este é um e-mail de teste enviado a partir do painel administrativo.\n\n" +
         "Se você recebeu esta mensagem, o SMTP está configurado corretamente.\n" +
