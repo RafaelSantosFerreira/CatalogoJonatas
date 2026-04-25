@@ -44,7 +44,20 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="pt-BR" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <Toaster />
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+          themes={["light", "dark", "theme-ocean", "theme-forest", "theme-violet"]}
+          value={{
+            light: "light",
+            dark: "dark",
+            "theme-ocean": "theme-ocean",
+            "theme-forest": "theme-forest",
+            "theme-violet": "theme-violet",
+          }}
+        >
           <AuthProvider>
             <CustomerProvider>
               <CartProvider>
