@@ -3,16 +3,25 @@
 
 import { Package, Pencil, Trash2, Eye, Tag, ShoppingCart } from "lucide-react";
 import { motion } from "framer-motion";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/context/CartContext";
 import { useCustomer } from "@/context/CustomerContext";
 import { useState } from "react";
-import { CustomerRegisterModal } from "./CustomerRegisterModal";
-import { ProductAttributeModal } from "./ProductAttributeModal";
 import { toast } from "sonner";
 import type { Product } from "@/types/product";
 import type { SelectedAttributes } from "@/types/cart";
+
+const CustomerRegisterModal = dynamic(
+  () => import("./CustomerRegisterModal").then((m) => m.CustomerRegisterModal),
+  { ssr: false }
+);
+const ProductAttributeModal = dynamic(
+  () => import("./ProductAttributeModal").then((m) => m.ProductAttributeModal),
+  { ssr: false }
+);
 
 interface ProductCardProps {
   product: Product;
@@ -75,10 +84,12 @@ export function ProductCard({ product, onView, onEdit, onDelete }: ProductCardPr
           onClick={() => onView(product)}
         >
           {product.image_url ? (
-            <img
+            <Image
               src={product.image_url}
               alt={product.name}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center">

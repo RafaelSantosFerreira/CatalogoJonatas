@@ -18,6 +18,17 @@ async function fetchProductDetails(productId: string) {
   };
 }
 
+type DetailRow = { id: string; product_id: string };
+
+function groupByProductId<T extends DetailRow>(rows: T[] | null | undefined): Record<string, T[]> {
+  const grouped: Record<string, T[]> = {};
+  for (const row of rows ?? []) {
+    if (!grouped[row.product_id]) grouped[row.product_id] = [];
+    grouped[row.product_id].push(row);
+  }
+  return grouped;
+}
+
 function parsePrice(price: string): number | null {
   if (price === "" || price === null || price === undefined) return null;
   const parsed = parseFloat(price);
@@ -67,9 +78,23 @@ export function useProductStore() {
 
     if (!data) { setLoading(false); return; }
 
-    const enriched = await Promise.all(
-      data.map(async (p) => ({ ...p, ...(await fetchProductDetails(p.id)) }))
-    );
+    const productIds = data.map((p) => p.id);
+    const [colorsRes, sizesRes, volumesRes] = await Promise.all([
+      supabase.from("product_colors").select("*").in("product_id", productIds),
+      supabase.from("product_sizes").select("*").in("product_id", productIds),
+      supabase.from("product_volumes").select("*").in("product_id", productIds),
+    ]);
+
+    const colorsByProduct = groupByProductId(colorsRes.data);
+    const sizesByProduct = groupByProductId(sizesRes.data);
+    const volumesByProduct = groupByProductId(volumesRes.data);
+
+    const enriched = data.map((p) => ({
+      ...p,
+      colors: colorsByProduct[p.id] ?? [],
+      sizes: sizesByProduct[p.id] ?? [],
+      volumes: volumesByProduct[p.id] ?? [],
+    }));
     setProducts(enriched as Product[]);
     setLoading(false);
   }, []);

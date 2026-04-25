@@ -3,6 +3,7 @@
 
 import { Package, Pencil, Trash2, Eye, Tag } from "lucide-react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Product } from "@/types/product";
@@ -29,7 +30,13 @@ export function AdminProductCard({ product, onView, onEdit, onDelete }: AdminPro
     >
       <div className="relative h-48 bg-muted cursor-pointer overflow-hidden" onClick={() => onView(product)}>
         {product.image_url ? (
-          <img src={product.image_url} alt={product.name} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" />
+          <Image
+            src={product.image_url}
+            alt={product.name}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <Package className="h-16 w-16 text-muted-foreground/30" />

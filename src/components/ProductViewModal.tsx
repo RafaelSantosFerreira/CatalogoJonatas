@@ -2,6 +2,7 @@
 "use client";
 
 import { Package, Tag, Ruler, Droplets, Palette, BadgeCheck, BadgeX } from "lucide-react";
+import Image from "next/image";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -31,7 +32,15 @@ export function ProductViewModal({ open, onClose, product }: Props) {
         <ScrollArea className="max-h-[75vh]">
           <div className="px-6 py-4 space-y-4">
             {product.image_url ? (
-              <img src={product.image_url} alt={product.name} className="w-full h-56 object-cover rounded-lg border" />
+              <div className="relative w-full h-56 rounded-lg border overflow-hidden">
+                <Image
+                  src={product.image_url}
+                  alt={product.name}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 560px"
+                  className="object-cover"
+                />
+              </div>
             ) : (
               <div className="w-full h-40 rounded-lg border bg-muted flex items-center justify-center">
                 <Package className="h-14 w-14 text-muted-foreground/30" />

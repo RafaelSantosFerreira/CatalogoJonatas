@@ -2,14 +2,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { AnimatePresence } from "framer-motion";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Header } from "@/components/Header";
 import { ProductCard } from "@/components/ProductCard";
-import { ProductViewModal } from "@/components/ProductViewModal";
 import { useProductStore } from "@/store/productStore";
 import type { Product } from "@/types/product";
+
+const ProductViewModal = dynamic(
+  () => import("@/components/ProductViewModal").then((m) => m.ProductViewModal),
+  { ssr: false }
+);
 
 export default function CatalogPage() {
   const { products, loading, fetchProducts } = useProductStore();

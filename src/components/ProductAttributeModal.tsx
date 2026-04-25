@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { ShoppingCart, Palette, Ruler, Droplets } from "lucide-react";
 import {
   Dialog,
@@ -84,9 +85,12 @@ export function ProductAttributeModal({ open, onClose, product, onConfirm }: Pro
         <div className="space-y-4">
           <div className="rounded-lg border bg-muted/30 px-3 py-2 flex items-center gap-2">
             {product.image_url && (
-              <img
+              <Image
                 src={product.image_url}
                 alt={product.name}
+                width={40}
+                height={40}
+                sizes="40px"
                 className="h-10 w-10 rounded-md object-cover border shrink-0"
               />
             )}

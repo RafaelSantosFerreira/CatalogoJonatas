@@ -3,6 +3,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { upload } from "@zoerai/integration";
+import Image from "next/image";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -103,10 +104,12 @@ export function ProductFormModal({ open, onClose, product }: Props) {
               <Label>Foto do Produto</Label>
               {form.image_url ? (
                 <div className="relative w-full h-48 rounded-lg border overflow-hidden group">
-                  <img
+                  <Image
                     src={form.image_url}
                     alt="preview"
-                    className="h-full w-full object-cover"
+                    fill
+                    sizes="(max-width: 768px) 100vw, 480px"
+                    className="object-cover"
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <label className="cursor-pointer">

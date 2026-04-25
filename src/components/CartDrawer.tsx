@@ -2,6 +2,8 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Image from "next/image";
+import dynamic from "next/dynamic";
 import {
   ShoppingCart,
   Trash2,
@@ -26,8 +28,6 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useCart } from "@/context/CartContext";
 import { useCustomer } from "@/context/CustomerContext";
-import { CustomerRegisterModal } from "./CustomerRegisterModal";
-import { OrderConfirmationModal } from "./OrderConfirmationModal";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { createTraceId, logAppInfo, logAppWarn } from "@/lib/app-logger";
 import {
@@ -40,6 +40,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Customer } from "@/types/customer";
 import type { CartItem } from "@/types/cart";
+
+const CustomerRegisterModal = dynamic(
+  () => import("./CustomerRegisterModal").then((m) => m.CustomerRegisterModal),
+  { ssr: false }
+);
+const OrderConfirmationModal = dynamic(
+  () => import("./OrderConfirmationModal").then((m) => m.OrderConfirmationModal),
+  { ssr: false }
+);
 
 export function CartDrawer() {
   const { items, itemCount, total, removeItem, updateQuantity, clearCart } = useCart();
@@ -425,9 +434,12 @@ function CartItemRow({ item, onRemove, onIncrease, onDecrease }: CartItemRowProp
     <div className="flex gap-3 rounded-lg border bg-card p-3">
       <div className="h-14 w-14 shrink-0 rounded-md bg-muted overflow-hidden">
         {item.product?.image_url ? (
-          <img
+          <Image
             src={item.product.image_url}
             alt={item.product?.name}
+            width={56}
+            height={56}
+            sizes="56px"
             className="h-full w-full object-cover"
           />
         ) : (
