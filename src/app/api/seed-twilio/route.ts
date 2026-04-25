@@ -1,12 +1,35 @@
 import { supabaseAdmin } from "@/integrations/supabase/server";
 import { logAppError } from "@/lib/app-logger";
 import { getTwilioFromEnv } from "@/lib/env-twilio";
+import { getAdminUserIdFromRequest } from "@/lib/verify-admin-request";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 /**
  * Grava Twilio em company_settings a partir do .env (sem segredos no código-fonte).
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const rl = checkRateLimit({
+      request,
+      key: "api:seed-twilio",
+      windowMs: 60_000,
+      max: 10,
+    });
+    if (!rl.allowed) {
+      return Response.json(
+        { success: false, error: "Muitas tentativas. Tente novamente em instantes." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      );
+    }
+
+    const adminId = await getAdminUserIdFromRequest(request);
+    if (!adminId) {
+      return Response.json(
+        { success: false, error: "Acesso negado. Faça login como administrador." },
+        { status: 401 }
+      );
+    }
+
     const twilio = getTwilioFromEnv();
     if (!twilio.ok) {
       return Response.json(

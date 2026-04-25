@@ -79,7 +79,6 @@ export function AdminProductList({ products, loading }: Props) {
                 onView={handleView}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                isAdmin
               />
             ))}
           </AnimatePresence>

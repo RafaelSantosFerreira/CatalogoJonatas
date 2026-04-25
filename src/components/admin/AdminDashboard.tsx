@@ -5,8 +5,8 @@ import { useEffect, useState, useCallback } from "react";
 import { AnimatePresence } from "framer-motion";
 import { Search, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import AdminGuard from "@/components/admin/AdminGuard";
-import AdminHeader from "@/components/admin/AdminHeader";
+import { AdminGuard } from "@/components/admin/AdminGuard";
+import { AdminHeader } from "@/components/admin/AdminHeader";
 import { AdminProductCard } from "@/components/admin/AdminProductCard";
 import { ProductFormModal } from "@/components/ProductFormModal";
 import { ProductViewModal } from "@/components/ProductViewModal";
@@ -30,7 +30,6 @@ export default function AdminDashboard() {
     p.category?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleNew = useCallback(() => { setSelected(null); setFormOpen(true); }, []);
   const handleEdit = useCallback((p: Product) => { setSelected(p); setFormOpen(true); }, []);
   const handleView = useCallback((p: Product) => { setSelected(p); setViewOpen(true); }, []);
   const handleDelete = useCallback((p: Product) => { setSelected(p); setDeleteOpen(true); }, []);
@@ -38,7 +37,7 @@ export default function AdminDashboard() {
   return (
     <AdminGuard>
       <div className="min-h-screen bg-background">
-        <AdminHeader onNewProduct={handleNew} />
+        <AdminHeader />
 
         <main className="container mx-auto px-4 py-8">
           <div className="mb-6 flex items-center gap-3">

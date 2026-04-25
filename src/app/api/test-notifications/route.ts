@@ -7,8 +7,13 @@ import {
 } from "@/lib/twilio-messaging.server";
 import { sendSmtpTest } from "@/lib/smtp-send.server";
 import { getAdminUserIdFromRequest } from "@/lib/verify-admin-request";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
 
 type Channel = "whatsapp" | "email";
+const notificationSchema = z.object({
+  channel: z.enum(["whatsapp", "email"]),
+});
 
 function buildWhatsAppTo(whatsapp_country_code: string, whatsapp_number: string | null): string | null {
   const cc = (whatsapp_country_code || "+55").replace(/\D/g, "");
@@ -23,6 +28,18 @@ function buildWhatsAppTo(whatsapp_country_code: string, whatsapp_number: string 
  */
 export async function POST(request: Request) {
   const traceId = request.headers.get("x-trace-id") || createTraceId("apitest");
+  const rl = checkRateLimit({
+    request,
+    key: "api:test-notifications",
+    windowMs: 60_000,
+    max: 20,
+  });
+  if (!rl.allowed) {
+    return Response.json(
+      { success: false, error: "Muitas tentativas. Aguarde alguns segundos.", traceId },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+    );
+  }
   const adminId = await getAdminUserIdFromRequest(request);
   if (!adminId) {
     return Response.json(
@@ -32,8 +49,15 @@ export async function POST(request: Request) {
   }
 
   try {
-    const body = (await request.json()) as { channel: Channel };
-    const channel: Channel = body?.channel;
+    const rawBody = await request.json();
+    const parsed = notificationSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return Response.json(
+        { success: false, error: "Payload inválido.", traceId },
+        { status: 400 }
+      );
+    }
+    const channel: Channel = parsed.data.channel;
     logAppInfo("api/test-notifications.start", "Início do teste de notificação", {
       traceId,
       adminId,

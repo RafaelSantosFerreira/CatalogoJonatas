@@ -114,7 +114,20 @@ export function CompanySettingsPanel() {
   const handleApplyPreset = async () => {
     setSeeding(true);
     try {
-      const res = await fetch("/api/seed-twilio", { method: "POST" });
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        toast.error("Sessão expirada. Faça login novamente.");
+        setSeeding(false);
+        return;
+      }
+      const res = await fetch("/api/seed-twilio", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
       const data = await res.json();
       if (data.success) {
         await refetch();

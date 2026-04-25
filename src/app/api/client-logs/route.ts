@@ -1,7 +1,22 @@
+import { checkRateLimit } from "@/lib/rate-limit";
+
 const MAX_BYTES = 24_000;
 
 export async function POST(request: Request) {
   try {
+    const rl = checkRateLimit({
+      request,
+      key: "api:client-logs",
+      windowMs: 60_000,
+      max: 120,
+    });
+    if (!rl.allowed) {
+      return new Response(null, {
+        status: 429,
+        headers: { "Retry-After": String(rl.retryAfterSec) },
+      });
+    }
+
     const buf = await request.arrayBuffer();
     if (buf.byteLength > MAX_BYTES) {
       console.error("[client-logs] payload too large:", buf.byteLength);

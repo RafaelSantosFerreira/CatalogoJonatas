@@ -1,9 +1,37 @@
 import { supabaseAdmin } from "@/integrations/supabase/server";
 import { logAppError } from "@/lib/app-logger";
 import { getSetupAdminCredentials } from "@/lib/env-setup-admin";
+import { checkRateLimit } from "@/lib/rate-limit";
 
-export async function POST() {
+function isSetupAuthorized(request: Request): boolean {
+  const token = process.env.SETUP_API_TOKEN?.trim();
+  if (!token) return process.env.NODE_ENV !== "production";
+  const provided = request.headers.get("x-setup-token")?.trim();
+  return Boolean(provided && provided === token);
+}
+
+export async function POST(request: Request) {
   try {
+    const rl = checkRateLimit({
+      request,
+      key: "api:setup",
+      windowMs: 60_000,
+      max: 5,
+    });
+    if (!rl.allowed) {
+      return Response.json(
+        { success: false, error: "Muitas tentativas de setup. Tente novamente em instantes." },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      );
+    }
+
+    if (!isSetupAuthorized(request)) {
+      return Response.json(
+        { success: false, error: "Acesso negado ao endpoint de setup." },
+        { status: 401 }
+      );
+    }
+
     const { email: ADMIN_EMAIL, password: ADMIN_PASSWORD, usingDefaultPassword } =
       getSetupAdminCredentials();
 

@@ -5,19 +5,47 @@ import {
   sendTwilioContentMessage,
   saveWhatsAppLogToDb,
 } from "@/lib/twilio-messaging.server";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { z } from "zod";
+
+const whatsappPayloadSchema = z.object({
+  to: z.string().min(5).optional(),
+  contentVariables: z.record(z.string(), z.string()),
+  orderId: z.string().uuid().optional(),
+  useCompanyWhatsappTarget: z.boolean().optional(),
+});
 
 export async function POST(request: Request) {
   const traceId = request.headers.get("x-trace-id") || createTraceId("apiwa");
   const flowSource = request.headers.get("x-flow-source") || "unknown";
   try {
+    const rl = checkRateLimit({
+      request,
+      key: "api:whatsapp",
+      windowMs: 60_000,
+      max: 30,
+    });
+    if (!rl.allowed) {
+      return Response.json(
+        { success: false, error: "Muitas tentativas. Tente novamente em instantes.", traceId },
+        { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } }
+      );
+    }
+
     logAppInfo("api/whatsapp.start", "Recebido POST /api/whatsapp", { traceId, flowSource });
-    const body = await request.json();
-    const { to, contentVariables, orderId, useCompanyWhatsappTarget } = body as {
-      to?: string;
-      contentVariables: Record<string, string>;
-      orderId?: string;
-      useCompanyWhatsappTarget?: boolean;
-    };
+    const rawBody = await request.json();
+    const parsed = whatsappPayloadSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      return Response.json(
+        {
+          success: false,
+          error: "Payload inválido para envio WhatsApp.",
+          traceId,
+        },
+        { status: 400 }
+      );
+    }
+    const { to, contentVariables, orderId, useCompanyWhatsappTarget } = parsed.data;
 
     if (!contentVariables) {
       return Response.json(
