@@ -21,10 +21,11 @@ interface Props {
   open: boolean;
   onClose: () => void;
   product: Product | null;
+  showPrices?: boolean;
   onConfirm: (product: Product, attrs: SelectedAttributes) => Promise<void>;
 }
 
-export function ProductAttributeModal({ open, onClose, product, onConfirm }: Props) {
+export function ProductAttributeModal({ open, onClose, product, showPrices = true, onConfirm }: Props) {
   const [selectedColor, setSelectedColor] = useState<ProductColor | null>(null);
   const [selectedSize, setSelectedSize] = useState<ProductSize | null>(null);
   const [selectedVolume, setSelectedVolume] = useState<ProductVolume | null>(null);
@@ -96,7 +97,7 @@ export function ProductAttributeModal({ open, onClose, product, onConfirm }: Pro
             )}
             <div className="min-w-0">
               <p className="text-sm font-semibold truncate">{product.name}</p>
-              {product.price != null && (
+              {showPrices && product.price != null && (
                 <p className="text-xs text-primary font-medium">
                   {product.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                 </p>

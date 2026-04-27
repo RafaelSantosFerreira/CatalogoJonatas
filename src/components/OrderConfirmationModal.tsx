@@ -27,6 +27,7 @@ interface OrderConfirmationModalProps {
   whatsappUrl: string | null;
   emailUrl: string | null;
   twilioSent?: boolean;
+  showPrices?: boolean;
 }
 
 export function OrderConfirmationModal({
@@ -39,6 +40,7 @@ export function OrderConfirmationModal({
   whatsappUrl,
   emailUrl,
   twilioSent = false,
+  showPrices = true,
 }: OrderConfirmationModalProps) {
   const [whatsappSent, setWhatsappSent] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -152,12 +154,14 @@ export function OrderConfirmationModal({
                         </span>
                         <span className="text-muted-foreground shrink-0">
                           {item.quantity}x{" "}
-                          <span className="text-foreground font-medium">
-                            {(item.unit_price * item.quantity).toLocaleString("pt-BR", {
-                              style: "currency",
-                              currency: "BRL",
-                            })}
-                          </span>
+                          {showPrices && (
+                            <span className="text-foreground font-medium">
+                              {(item.unit_price * item.quantity).toLocaleString("pt-BR", {
+                                style: "currency",
+                                currency: "BRL",
+                              })}
+                            </span>
+                          )}
                         </span>
                       </div>
                       {attrs && (
@@ -168,10 +172,12 @@ export function OrderConfirmationModal({
                 })}
               </div>
             </ScrollArea>
-            <div className="flex items-center justify-between pt-1 font-semibold text-sm">
-              <span>Total</span>
-              <span className="text-primary text-base">{totalFormatted}</span>
-            </div>
+            {showPrices && (
+              <div className="flex items-center justify-between pt-1 font-semibold text-sm">
+                <span>Total</span>
+                <span className="text-primary text-base">{totalFormatted}</span>
+              </div>
+            )}
           </div>
 
           <Separator />

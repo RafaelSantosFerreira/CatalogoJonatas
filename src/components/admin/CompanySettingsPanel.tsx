@@ -24,6 +24,7 @@ import { createTraceId, logAppInfo, logAppWarn } from "@/lib/app-logger";
 
 const INITIAL: CompanySettingsFormData = {
   company_name: "",
+  show_prices: true,
   order_email: "",
   whatsapp_country_code: "+55",
   whatsapp_number: "",
@@ -81,6 +82,7 @@ export function CompanySettingsPanel() {
     if (settings) {
       setForm({
         company_name: settings.company_name ?? "",
+        show_prices: settings.show_prices ?? true,
         order_email: settings.order_email ?? "",
         whatsapp_country_code: settings.whatsapp_country_code ?? "+55",
         whatsapp_number: settings.whatsapp_number ?? "",
@@ -227,7 +229,21 @@ export function CompanySettingsPanel() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-1.5">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="show_prices">Mostrar preços no site</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Quando desativado, os usuários veem os produtos sem valores.
+                  </p>
+                </div>
+                <Switch
+                  id="show_prices"
+                  checked={form.show_prices}
+                  onCheckedChange={(v) => set("show_prices", v)}
+                />
+              </div>
+              <Separator />
               <Label htmlFor="company_name">Nome da empresa</Label>
               <Input
                 id="company_name"

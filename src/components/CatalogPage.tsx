@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Header } from "@/components/Header";
 import { ProductCard } from "@/components/ProductCard";
 import { useProductStore } from "@/store/productStore";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 import type { Product } from "@/types/product";
 
 const ProductViewModal = dynamic(
@@ -18,7 +19,10 @@ const ProductViewModal = dynamic(
 
 export default function CatalogPage() {
   const { products, loading, fetchProducts } = useProductStore();
+  const { settings } = useCompanySettings();
   const [search, setSearch] = useState("");
+  const showPrices = settings?.show_prices ?? true;
+
   const [viewOpen, setViewOpen] = useState(false);
   const [selected, setSelected] = useState<Product | null>(null);
 
@@ -72,6 +76,7 @@ export default function CatalogPage() {
                 <ProductCard
                   key={p.id}
                   product={p}
+                  showPrices={showPrices}
                   onView={(prod) => { setSelected(prod); setViewOpen(true); }}
                 />
               ))}
@@ -84,6 +89,7 @@ export default function CatalogPage() {
         open={viewOpen}
         onClose={() => setViewOpen(false)}
         product={selected}
+        showPrices={showPrices}
       />
     </div>
   );

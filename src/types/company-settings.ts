@@ -2,6 +2,7 @@
 export interface CompanySettings {
   id: string;
   company_name?: string;
+  show_prices?: boolean;
   order_email?: string;
   whatsapp_country_code: string;
   whatsapp_number?: string;
@@ -26,6 +27,7 @@ export interface CompanySettings {
 
 export interface CompanySettingsFormData {
   company_name: string;
+  show_prices: boolean;
   order_email: string;
   whatsapp_country_code: string;
   whatsapp_number: string;

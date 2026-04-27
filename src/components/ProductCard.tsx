@@ -28,9 +28,10 @@ interface ProductCardProps {
   onView: (product: Product) => void;
   onEdit?: (product: Product) => void;
   onDelete?: (product: Product) => void;
+  showPrices?: boolean;
 }
 
-export function ProductCard({ product, onView, onEdit, onDelete }: ProductCardProps) {
+export function ProductCard({ product, onView, onEdit, onDelete, showPrices = true }: ProductCardProps) {
   const { addItem } = useCart();
   const { customer } = useCustomer();
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -70,6 +71,7 @@ export function ProductCard({ product, onView, onEdit, onDelete }: ProductCardPr
         open={attrOpen}
         onClose={() => setAttrOpen(false)}
         product={product}
+        showPrices={showPrices}
         onConfirm={handleConfirmAdd}
       />
 
@@ -111,7 +113,7 @@ export function ProductCard({ product, onView, onEdit, onDelete }: ProductCardPr
             >
               {product.name}
             </h3>
-            {formattedPrice && (
+            {(isAdminMode || showPrices) && formattedPrice && (
               <span className="shrink-0 text-sm font-bold text-primary">{formattedPrice}</span>
             )}
           </div>

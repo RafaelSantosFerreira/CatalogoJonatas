@@ -9,9 +9,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import type { Product } from "@/types/product";
 
-interface Props { open: boolean; onClose: () => void; product: Product | null; }
+interface Props { open: boolean; onClose: () => void; product: Product | null; showPrices?: boolean; }
 
-export function ProductViewModal({ open, onClose, product }: Props) {
+export function ProductViewModal({ open, onClose, product, showPrices = true }: Props) {
   if (!product) return null;
 
   const price = product.price != null
@@ -48,7 +48,7 @@ export function ProductViewModal({ open, onClose, product }: Props) {
             )}
 
             <div className="flex flex-wrap gap-2">
-              {price && <Badge variant="default" className="text-sm">{price}</Badge>}
+              {showPrices && price && <Badge variant="default" className="text-sm">{price}</Badge>}
               {product.category && <Badge variant="secondary"><Tag className="h-3 w-3 mr-1" />{product.category}</Badge>}
               {product.brand && <Badge variant="outline">{product.brand}</Badge>}
               {product.sku && <Badge variant="outline" className="font-mono text-xs">{product.sku}</Badge>}

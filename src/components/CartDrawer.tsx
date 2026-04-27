@@ -67,6 +67,7 @@ export function CartDrawer() {
     twilioSent: boolean;
   } | null>(null);
   const [finalizing, setFinalizing] = useState(false);
+  const showPrices = settings?.show_prices ?? true;
 
   const saveOrder = useCallback(
     async (cust: Customer, cartItems: CartItem[], orderTotal: number) => {
@@ -230,6 +231,7 @@ export function CartDrawer() {
           whatsappUrl={pendingOrder.whatsappUrl}
           emailUrl={pendingOrder.emailUrl}
           twilioSent={pendingOrder.twilioSent}
+          showPrices={showPrices}
         />
       )}
 
@@ -308,6 +310,7 @@ export function CartDrawer() {
                     <CartItemRow
                       key={item.id}
                       item={item}
+                      showPrices={showPrices}
                       onRemove={() => removeItem(item.id)}
                       onIncrease={() => updateQuantity(item.id, item.quantity + 1)}
                       onDecrease={() => updateQuantity(item.id, item.quantity - 1)}
@@ -319,15 +322,17 @@ export function CartDrawer() {
               <Separator />
 
               <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Total</span>
-                  <span className="font-bold text-lg text-primary">
-                    {total.toLocaleString("pt-BR", {
-                      style: "currency",
-                      currency: "BRL",
-                    })}
-                  </span>
-                </div>
+                {showPrices && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Total</span>
+                    <span className="font-bold text-lg text-primary">
+                      {total.toLocaleString("pt-BR", {
+                        style: "currency",
+                        currency: "BRL",
+                      })}
+                    </span>
+                  </div>
+                )}
 
                 <NotificationInfo settings={settings} />
 
@@ -413,12 +418,13 @@ function NotificationInfo({
 
 interface CartItemRowProps {
   item: CartItem;
+  showPrices: boolean;
   onRemove: () => void;
   onIncrease: () => void;
   onDecrease: () => void;
 }
 
-function CartItemRow({ item, onRemove, onIncrease, onDecrease }: CartItemRowProps) {
+function CartItemRow({ item, showPrices, onRemove, onIncrease, onDecrease }: CartItemRowProps) {
   const subtotal = (item.unit_price * item.quantity).toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
@@ -467,13 +473,15 @@ function CartItemRow({ item, onRemove, onIncrease, onDecrease }: CartItemRowProp
           </div>
         )}
 
-        <p className="text-xs text-muted-foreground">
-          {item.unit_price.toLocaleString("pt-BR", {
-            style: "currency",
-            currency: "BRL",
-          })}{" "}
-          / un.
-        </p>
+        {showPrices && (
+          <p className="text-xs text-muted-foreground">
+            {item.unit_price.toLocaleString("pt-BR", {
+              style: "currency",
+              currency: "BRL",
+            })}{" "}
+            / un.
+          </p>
+        )}
         <div className="flex items-center justify-between mt-auto">
           <div className="flex items-center gap-1">
             <Button variant="outline" size="icon" className="h-6 w-6" onClick={onDecrease}>
@@ -485,7 +493,7 @@ function CartItemRow({ item, onRemove, onIncrease, onDecrease }: CartItemRowProp
             </Button>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-primary">{subtotal}</span>
+            {showPrices && <span className="text-sm font-semibold text-primary">{subtotal}</span>}
             <Button
               variant="ghost"
               size="icon"

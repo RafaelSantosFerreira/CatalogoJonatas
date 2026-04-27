@@ -750,6 +750,12 @@ ADD COLUMN IF NOT EXISTS twilio_content_sid VARCHAR;
 
 COMMENT ON COLUMN public.company_settings.twilio_content_sid IS 'ContentSid do template de mensagem WhatsApp no Twilio (ex: HXb5b62575e6e4ff6129ad7c8efe1f983e)';
 
+-- Exibir/ocultar preços no catálogo para usuários
+ALTER TABLE public.company_settings
+ADD COLUMN IF NOT EXISTS show_prices BOOLEAN NOT NULL DEFAULT true;
+
+COMMENT ON COLUMN public.company_settings.show_prices IS 'Define se os preços ficam visíveis para usuários do site';
+
 -- Salva as configurações do Twilio extraídas do cURL fornecido
 -- Usa UPSERT para garantir que só existe um registro (singleton)
 INSERT INTO public.company_settings (
