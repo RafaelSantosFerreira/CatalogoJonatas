@@ -62,3 +62,11 @@ export default function Dashboard() {
 ```
 
 3. Route is automatically registered as `/dashboard`
+
+## Agent Memory (Obsidian)
+
+- Memory hub: `memoria/INDEX.md`
+- Primary project memory: `memoria/MEMORIA_PROJETO_OBSIDIAN.md`
+- Operational runbooks: `memoria/RUNBOOKS_OPERACIONAIS.md`
+- Always read this file before substantial changes, debugging, or incident response.
+- When fixing a bug, append the incident in "Erros e Correcoes (Historico Dinamico)".

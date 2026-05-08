@@ -276,6 +276,7 @@ BEGIN
 END;
 $$;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
@@ -310,7 +311,7 @@ VALUES (
   'authenticated',
   'authenticated'
 )
-ON CONFLICT (email) DO NOTHING;
+ON CONFLICT (instance_id, email) DO NOTHING;
 
 -- Sincronizar profile e role para o usuário recém-criado
 INSERT INTO public.profiles (id, email, full_name)
@@ -757,31 +758,37 @@ ADD COLUMN IF NOT EXISTS show_prices BOOLEAN NOT NULL DEFAULT true;
 COMMENT ON COLUMN public.company_settings.show_prices IS 'Define se os preços ficam visíveis para usuários do site';
 
 -- Salva as configurações do Twilio extraídas do cURL fornecido
--- Usa UPSERT para garantir que só existe um registro (singleton)
-INSERT INTO public.company_settings (
-    id,
-    twilio_account_sid,
-    twilio_auth_token,
-    twilio_whatsapp_from,
-    twilio_content_sid,
-    whatsapp_notifications_enabled
-)
-VALUES (
-    gen_random_uuid(),
-    'AC89a6a95f92422800361bce388e5c8cc6',
-    'a409a2a3047d68580ec61192aa570a84',
-    'whatsapp:+14155238886',
-    'HXb5b62575e6e4ff6129ad7c8efe1f983e',
-    true
-)
-ON CONFLICT ((true))
-DO UPDATE SET
-    twilio_account_sid   = EXCLUDED.twilio_account_sid,
-    twilio_auth_token    = EXCLUDED.twilio_auth_token,
-    twilio_whatsapp_from = EXCLUDED.twilio_whatsapp_from,
-    twilio_content_sid   = EXCLUDED.twilio_content_sid,
-    whatsapp_notifications_enabled = true,
-    updated_at           = now();
+-- Estrategia idempotente de singleton (sem depender de ON CONFLICT em expressão)
+DO $$
+BEGIN
+    UPDATE public.company_settings
+    SET
+        twilio_account_sid = 'AC89a6a95f92422800361bce388e5c8cc6',
+        twilio_auth_token = 'a409a2a3047d68580ec61192aa570a84',
+        twilio_whatsapp_from = 'whatsapp:+14155238886',
+        twilio_content_sid = 'HXb5b62575e6e4ff6129ad7c8efe1f983e',
+        whatsapp_notifications_enabled = true,
+        updated_at = now();
+
+    IF NOT FOUND THEN
+        INSERT INTO public.company_settings (
+            id,
+            twilio_account_sid,
+            twilio_auth_token,
+            twilio_whatsapp_from,
+            twilio_content_sid,
+            whatsapp_notifications_enabled
+        )
+        VALUES (
+            gen_random_uuid(),
+            'AC89a6a95f92422800361bce388e5c8cc6',
+            'a409a2a3047d68580ec61192aa570a84',
+            'whatsapp:+14155238886',
+            'HXb5b62575e6e4ff6129ad7c8efe1f983e',
+            true
+        );
+    END IF;
+END $$;
 
 -- ================================================
 -- PHASE 1: ENUM para status do log
