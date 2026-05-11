@@ -154,6 +154,19 @@ responsavel: agentes
 - Validacao:
   - Migracao aplicada por API com sucesso (`STATUS=201`) e tabelas principais confirmadas via `information_schema`.
 
+### 2026-05-08 - Regra de credenciais centralizada no `.env.local`
+
+- Sintoma:
+  - Credenciais Twilio estavam hardcoded no `app.sql` e no script de migração.
+- Causa raiz:
+  - Seed SQL estava populando segredos diretamente no banco durante migração.
+- Correcao aplicada:
+  - Removidos segredos do `app.sql` e do `scripts/run-supabase-migration.mjs`;
+  - `app.sql` agora apenas garante singleton em `company_settings` sem credenciais;
+  - fluxo oficial de credenciais Twilio mantido via `.env.local` + `POST /api/seed-twilio`.
+- Validacao:
+  - Nenhuma credencial Twilio fixa permanece nos arquivos versionados alterados.
+
 ## Playbook de Diagnostico Rapido
 
 ## Banco/Supabase

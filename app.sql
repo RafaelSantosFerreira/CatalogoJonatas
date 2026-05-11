@@ -757,34 +757,18 @@ ADD COLUMN IF NOT EXISTS show_prices BOOLEAN NOT NULL DEFAULT true;
 
 COMMENT ON COLUMN public.company_settings.show_prices IS 'Define se os preços ficam visíveis para usuários do site';
 
--- Salva as configurações do Twilio extraídas do cURL fornecido
--- Estrategia idempotente de singleton (sem depender de ON CONFLICT em expressão)
+-- Não gravar credenciais sensíveis no SQL versionado.
+-- As credenciais Twilio devem vir de .env.local via endpoint /api/seed-twilio.
+-- Estrategia idempotente: garante pelo menos 1 registro em company_settings.
 DO $$
 BEGIN
-    UPDATE public.company_settings
-    SET
-        twilio_account_sid = 'AC89a6a95f92422800361bce388e5c8cc6',
-        twilio_auth_token = 'a409a2a3047d68580ec61192aa570a84',
-        twilio_whatsapp_from = 'whatsapp:+14155238886',
-        twilio_content_sid = 'HXb5b62575e6e4ff6129ad7c8efe1f983e',
-        whatsapp_notifications_enabled = true,
-        updated_at = now();
-
-    IF NOT FOUND THEN
+    IF NOT EXISTS (SELECT 1 FROM public.company_settings) THEN
         INSERT INTO public.company_settings (
             id,
-            twilio_account_sid,
-            twilio_auth_token,
-            twilio_whatsapp_from,
-            twilio_content_sid,
             whatsapp_notifications_enabled
         )
         VALUES (
             gen_random_uuid(),
-            'AC89a6a95f92422800361bce388e5c8cc6',
-            'a409a2a3047d68580ec61192aa570a84',
-            'whatsapp:+14155238886',
-            'HXb5b62575e6e4ff6129ad7c8efe1f983e',
             true
         );
     END IF;
