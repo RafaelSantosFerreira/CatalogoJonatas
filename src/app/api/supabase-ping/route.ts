@@ -52,7 +52,7 @@ export async function GET() {
       publicPart.detail = e instanceof Error ? e.message : String(e);
     }
   } else {
-    publicPart.detail = "Defina NEXT_PUBLIC_DATABASE_URL e NEXT_PUBLIC_DATABASE_PUBLISHABLE_KEY";
+    publicPart.detail = "Defina SUPABASE_API_URL + SUPABASE_ANON_KEY";
   }
 
   if (srv.isConfigured) {
@@ -80,7 +80,8 @@ export async function GET() {
       serverPart.ok = !/fetch failed|ENOTFOUND|ECONNREFUSED/i.test(msg);
     }
   } else {
-    serverPart.detail = "Defina DATABASE_URL e DATABASE_SERVICE_ROLE_KEY";
+    serverPart.detail =
+      "Defina SUPABASE_API_URL + DATABASE_SERVICE_ROLE_KEY (ou SUPABASE_SERVICE_ROLE_KEY). DATABASE_URL só se for URL https do mesmo projeto (não use URI postgres).";
   }
 
   const connected =

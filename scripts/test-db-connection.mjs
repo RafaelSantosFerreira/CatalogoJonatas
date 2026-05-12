@@ -35,12 +35,19 @@ function mask(s) {
 
 async function main() {
   const env = loadEnvLocal();
-  const baseUrl = (env.DATABASE_URL || env.NEXT_PUBLIC_DATABASE_URL || "").replace(/\/$/, "");
-  const serviceKey = env.DATABASE_SERVICE_ROLE_KEY;
-  const publishable = env.NEXT_PUBLIC_DATABASE_PUBLISHABLE_KEY;
+  const restUrl = (env.SUPABASE_API_URL || "").replace(/\/$/, "");
+  const publicUrl = restUrl.replace(/\/rest\/v1$/i, "");
+  const rawDbUrl = (env.DATABASE_URL || "").trim();
+  const baseUrl = (/^https?:\/\//i.test(rawDbUrl) ? rawDbUrl : publicUrl).replace(/\/$/, "");
+  const serviceKey = env.DATABASE_SERVICE_ROLE_KEY || env.SUPABASE_SERVICE_ROLE_KEY;
+  const publishable = env.SUPABASE_ANON_KEY;
 
   console.log("--- Teste de conexão ---");
-  console.log("Origem (DATABASE_URL):", baseUrl || "(vazio)");
+  console.log(
+    "Origem (API https):",
+    baseUrl || "(vazio)",
+    rawDbUrl && /^https?:\/\//i.test(rawDbUrl) ? "(DATABASE_URL)" : "(SUPABASE_API_URL)"
+  );
   console.log("Chave publishable:", publishable ? mask(publishable) : "(ausente)");
   console.log("Chave service:", serviceKey ? mask(serviceKey) : "(ausente)");
   console.log("");

@@ -1,72 +1,42 @@
-# Zoer Next.js Template
+# Ferragem Pro — Next.js (Catálogo)
 
-Production-ready full-stack Next.js application integrated with Supabase, TailwindCSS 4, and Radix UI.
+Aplicação full-stack em Next.js com Supabase, Tailwind CSS 4 e Radix UI.
 
-Although this is a Next.js template, only create API routes when necessary. Prioritize implementing sensitive operations on the server-side, such as private key management and API calls requiring authentication credentials.
+Crie rotas em `src/app/api` apenas quando necessário. Operações sensíveis (chaves, grants, e-mail/WhatsApp) ficam no servidor.
 
 ## Tech Stack
 
-- **PNPM**: Package manager
-- **Frontend**: React 18 + Next.js + TypeScript + TailwindCSS 4
-- **Backend**: Next.js server-side routing (App Router)
-- **UI**: Radix UI + TailwindCSS 4 + Lucide React
-- **Database**: Supabase
+- **Pacotes**: npm ou pnpm (há `package-lock.yaml` e `pnpm-lock.yaml`)
+- **Frontend**: React + Next.js + TypeScript + Tailwind CSS 4
+- **Backend**: App Router (`src/app/api/*`)
+- **UI**: Radix UI + Lucide React
+- **Dados**: Supabase (`@supabase/supabase-js`) — cliente anônimo no browser; service role só em rotas servidor
 
-## Key Features
+## Supabase
 
-### Supabase Integration (Partial)
+- **Pasta**: `src/integrations/supabase/`
+- **`client.ts`**: `supabase` no cliente (RLS)
+- **`server.ts`**: `supabaseAdmin` no servidor (bypass RLS — usar só em API/actions)
+- **`types.ts`**: tipos das tabelas
 
-**Architecture**: 
-This template includes the `@supabase/supabase-js` SDK, but the server-side implementation is not from Supabase. Zoer has implemented partial functionality. **Available Server Features**:
-1. `from` table queries
-2. Login
-3. Register  
-4. Password reset
+### Rotas API de exemplo
 
-**Supabase**:
-- **Location**: `src/integrations/supabase/`
-- **Configuration**:
-  - `client.ts` - Exports `supabase` for client-side use, respects RLS policies
-  - `server.ts` - Exports `supabaseAdmin` for server-side use, bypasses RLS policies
-  - `types.ts` - TypeScript type definitions for Supabase tables
+- `GET /api/health` — health check
 
-#### Existing API Routes
-- `GET /api/health` - Health check endpoint
+## Novas features
 
-## Adding Features
+### Rota API
 
-### Create New API Route
+1. Crie `src/app/api/<nome>/route.ts`
+2. Exporte `GET` / `POST` / etc. conforme necessário
 
-1. Create a folder in `src/app/api/` directory, for example `src/app/api/users/`
-2. Create a `route.ts` file to handle requests
+### Página
 
-```typescript
-// src/app/api/users/route.ts
-export async function GET(request: Request) {
-  return Response.json({ message: "Hello" })
-}
-```
+1. Crie `src/app/<rota>/page.tsx`
 
-3. Route is automatically registered as `/api/users`
+## Memória (Obsidian)
 
-### Create New Page
-
-1. Create a new folder in `src/app/` directory, for example `src/app/dashboard/`
-2. Create a `page.tsx` file
-
-```typescript
-// src/app/dashboard/page.tsx
-export default function Dashboard() {
-  return <div>Dashboard Page</div>
-}
-```
-
-3. Route is automatically registered as `/dashboard`
-
-## Agent Memory (Obsidian)
-
-- Memory hub: `memoria/INDEX.md`
-- Primary project memory: `memoria/MEMORIA_PROJETO_OBSIDIAN.md`
-- Operational runbooks: `memoria/RUNBOOKS_OPERACIONAIS.md`
-- Always read this file before substantial changes, debugging, or incident response.
-- When fixing a bug, append the incident in "Erros e Correcoes (Historico Dinamico)".
+- Hub: `memoria/INDEX.md`
+- Memória principal: `memoria/MEMORIA_PROJETO_OBSIDIAN.md`
+- Runbooks: `memoria/RUNBOOKS_OPERACIONAIS.md`
+- Antes de mudanças grandes ou incidentes, leia a memória e registre correções em **Erros e Correcoes**.

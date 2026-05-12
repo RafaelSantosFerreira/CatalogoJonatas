@@ -21,7 +21,9 @@ export function AdminProductsPanel() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selected, setSelected] = useState<Product | null>(null);
 
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+  useEffect(() => {
+    void fetchProducts("admin");
+  }, [fetchProducts]);
 
   const filtered = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||

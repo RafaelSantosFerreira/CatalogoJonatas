@@ -17,13 +17,21 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 const DEFAULT_APP_NAME = "Ferragem Pro";
 const DEFAULT_DESCRIPTION = "Catálogo de produtos para ferragem com gestão completa";
 
+const METADATA_DB_MS = 4000;
+
 async function getAppNameForMetadata(): Promise<string> {
   if (!supabaseAdminConfigured) return DEFAULT_APP_NAME;
   try {
-    const { data } = await supabaseAdmin
-      .from("company_settings")
-      .select("company_name")
-      .maybeSingle();
+    const data = await Promise.race([
+      supabaseAdmin
+        .from("company_settings")
+        .select("company_name")
+        .maybeSingle()
+        .then((r) => r.data ?? null),
+      new Promise<null>((resolve) => {
+        setTimeout(() => resolve(null), METADATA_DB_MS);
+      }),
+    ]);
     const dynamicName = (data?.company_name || "").trim();
     return dynamicName || DEFAULT_APP_NAME;
   } catch {

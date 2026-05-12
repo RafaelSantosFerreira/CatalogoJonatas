@@ -3,12 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "dev:debug": "NODE_OPTIONS='--inspect' next dev",
+    "dev": "bash scripts/run-next-dev.sh dev --hostname 127.0.0.1",
+    "dev:turbo": "bash scripts/run-next-dev.sh dev --turbopack --hostname 127.0.0.1",
+    "dev:debug": "NODE_OPTIONS='--inspect' bash scripts/run-next-dev.sh dev --hostname 127.0.0.1",
+    "dev:lan": "bash scripts/run-next-dev.sh dev --hostname 0.0.0.0",
+    "dev:poll": "WATCHPACK_POLLING=1 bash scripts/run-next-dev.sh dev --hostname 127.0.0.1",
+    "dev:clean": "rm -rf .next-dev && npm run dev",
     "build": "next build",
     "start": "next start --port 3000",
     "lint": "next lint",
     "test:db": "node scripts/test-db-connection.mjs",
+    "test:db:crud": "node scripts/test-supabase-crud.mjs",
     "test:twilio": "node scripts/test-twilio-whatsapp.mjs"
   },
   "dependencies": {
@@ -44,7 +49,6 @@
     "@radix-ui/react-tooltip": "1.1.6",
     "@supabase/supabase-js": "^2.88.0",
     "@types/nodemailer": "^8.0.0",
-    "@zoerai/integration": "0.0.8",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -80,6 +84,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.2.4",
+    "pg": "^8.20.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

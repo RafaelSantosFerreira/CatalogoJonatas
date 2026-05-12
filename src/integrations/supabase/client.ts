@@ -5,7 +5,7 @@ const { url, key, isConfigured } = getPublicSupabaseConfig();
 
 if (typeof window !== "undefined" && !isConfigured) {
   console.warn(
-    "[Supabase] Crie .env.local com NEXT_PUBLIC_DATABASE_URL e NEXT_PUBLIC_DATABASE_PUBLISHABLE_KEY (veja .env.example)."
+    "[Supabase] Crie .env.local com SUPABASE_API_URL e SUPABASE_ANON_KEY (veja .env.example)."
   );
 }
 

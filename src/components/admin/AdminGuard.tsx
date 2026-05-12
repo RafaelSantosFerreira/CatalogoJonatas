@@ -5,6 +5,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { withTimeout } from "@/lib/with-timeout";
+import { logAppError } from "@/lib/app-logger";
 
 export function AdminGuard({ children }: { children: React.ReactNode }) {
   const { user, session, loading, signOut } = useAuth();
@@ -23,7 +25,7 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (!user.email_confirmed_at) {
+      if (!user?.email_confirmed_at) {
         await signOut();
         if (!cancelled) {
           setCheckingAccess(false);
@@ -33,25 +35,38 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const res = await fetch("/api/admin-access", {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        });
+        const res = await withTimeout(
+          fetch("/api/admin-access", {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }),
+          18_000
+        );
+        if (!res) {
+          logAppError("AdminGuard.admin-access", new Error("Timeout (18s) em /api/admin-access"));
+          await signOut();
+          if (!cancelled) {
+            setCheckingAccess(false);
+            router.replace("/admin/login?reason=timeout");
+          }
+          return;
+        }
         if (!res.ok) {
           await signOut();
           if (!cancelled) {
             setCheckingAccess(false);
-            router.replace("/admin/login");
+            router.replace("/admin/login?reason=access_denied");
           }
           return;
         }
-      } catch {
+      } catch (e) {
+        logAppError("AdminGuard.admin-access.fetch", e);
         await signOut();
         if (!cancelled) {
           setCheckingAccess(false);
-          router.replace("/admin/login");
+          router.replace("/admin/login?reason=network");
         }
         return;
       }

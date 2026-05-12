@@ -32,7 +32,7 @@ export default function AdminPanel() {
         router.replace("/admin/login");
       } else {
         setAuthChecked(true);
-        fetchProducts();
+        fetchProducts("admin");
       }
     });
   }, [router, fetchProducts]);

@@ -297,7 +297,7 @@ INSERT INTO auth.users (
   role,
   aud
 )
-VALUES (
+SELECT
   gen_random_uuid(),
   '00000000-0000-0000-0000-000000000000',
   'admin@ferragem.com',
@@ -310,21 +310,33 @@ VALUES (
   false,
   'authenticated',
   'authenticated'
-)
-ON CONFLICT (instance_id, email) DO NOTHING;
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM auth.users
+  WHERE email = 'admin@ferragem.com'
+);
 
 -- Sincronizar profile e role para o usuário recém-criado
 INSERT INTO public.profiles (id, email, full_name)
 SELECT id, email, 'Administrador'
 FROM auth.users
 WHERE email = 'admin@ferragem.com'
-ON CONFLICT (id) DO NOTHING;
+AND NOT EXISTS (
+  SELECT 1
+  FROM public.profiles p
+  WHERE p.id = auth.users.id
+);
 
 INSERT INTO public.user_roles (user_id, role)
 SELECT id, 'admin'
 FROM auth.users
 WHERE email = 'admin@ferragem.com'
-ON CONFLICT (user_id, role) DO NOTHING;
+AND NOT EXISTS (
+  SELECT 1
+  FROM public.user_roles ur
+  WHERE ur.user_id = auth.users.id
+    AND ur.role = 'admin'
+);
 
 -- ================================================
 -- PHASE 2: TABLES

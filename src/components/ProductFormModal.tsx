@@ -2,7 +2,6 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { upload } from "@zoerai/integration";
 import Image from "next/image";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,8 +14,21 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ColorFields } from "@/components/ColorFields";
 import { SizeFields } from "@/components/SizeFields";
 import { VolumeFields } from "@/components/VolumeFields";
+import { logAppError } from "@/lib/app-logger";
 import { useProductStore } from "@/store/productStore";
 import type { Product, ProductFormData } from "@/types/product";
+
+/** Limite para armazenar imagem como data URL no banco (evita linhas gigantes). */
+const MAX_IMAGE_BYTES = 750 * 1024;
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = () => reject(r.error ?? new Error("Falha ao ler arquivo"));
+    r.readAsDataURL(file);
+  });
+}
 
 const EMPTY_FORM: ProductFormData = {
   name: "", description: "", price: "", image_url: "",
@@ -26,12 +38,52 @@ const EMPTY_FORM: ProductFormData = {
 
 interface Props { open: boolean; onClose: () => void; product: Product | null; }
 
+async function resizeImageFile(file: File, maxDimension = 1600): Promise<File> {
+  if (!file.type.startsWith("image/")) return file;
+
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return file;
+
+  ctx.drawImage(bitmap, 0, 0, width, height);
+  bitmap.close();
+
+  const outputType = file.type === "image/png" ? "image/png" : "image/webp";
+  let quality = outputType === "image/png" ? undefined : 0.86;
+
+  const toBlob = (q?: number) =>
+    new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, outputType, q));
+
+  let blob = await toBlob(quality);
+  if (!blob) return file;
+
+  // Tenta reduzir qualidade automaticamente se ainda estiver grande.
+  while (blob.size > 5 * 1024 * 1024 && quality && quality > 0.5) {
+    quality -= 0.08;
+    blob = await toBlob(quality);
+    if (!blob) break;
+  }
+  if (!blob) return file;
+
+  const ext = outputType === "image/png" ? "png" : "webp";
+  const filename = (file.name.replace(/\.[^.]+$/, "") || "imagem") + `.${ext}`;
+  return new File([blob], filename, { type: outputType, lastModified: Date.now() });
+}
+
 export function ProductFormModal({ open, onClose, product }: Props) {
   const { createProduct, updateProduct } = useProductStore();
   const [form, setForm] = useState<ProductFormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     if (product) {
@@ -52,6 +104,7 @@ export function ProductFormModal({ open, onClose, product }: Props) {
       setForm(EMPTY_FORM);
     }
     setUploadError(null);
+    setSaveError(null);
   }, [product, open]);
 
   const set = useCallback((field: keyof ProductFormData, value: unknown) =>
@@ -62,14 +115,18 @@ export function ProductFormModal({ open, onClose, product }: Props) {
     if (!file) return;
     setUploadError(null);
     setUploading(true);
-    const result = await upload.uploadWithPresignedUrl(file, {
-      allowedExtensions: [".jpg", ".jpeg", ".png", ".webp"],
-      maxSize: 5 * 1024 * 1024,
-    });
-    if (result.success && result.url) {
-      set("image_url", result.url);
-    } else {
-      setUploadError(result.error ?? "Erro ao enviar a imagem. Tente novamente.");
+    try {
+      const resized = await resizeImageFile(file);
+      if (resized.size > MAX_IMAGE_BYTES) {
+        setUploadError(
+          "Imagem ainda grande demais após o processamento (~750 KB). Use arquivo menor ou imagem com menos pixels."
+        );
+      } else {
+        const dataUrl = await readFileAsDataUrl(resized);
+        set("image_url", dataUrl);
+      }
+    } catch {
+      setUploadError("Erro ao processar a imagem. Tente outro arquivo.");
     }
     setUploading(false);
     e.target.value = "";
@@ -83,9 +140,25 @@ export function ProductFormModal({ open, onClose, product }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) return;
+    setSaveError(null);
     setSaving(true);
-    if (product) await updateProduct(product.id, form);
-    else await createProduct(form);
+    try {
+      if (product) await updateProduct(product.id, form);
+      else await createProduct(form);
+    } catch (e) {
+      logAppError("ProductFormModal.submit", e, {
+        mode: product ? "update" : "create",
+        name: form.name,
+      });
+      const detail = e instanceof Error ? e.message : "Erro desconhecido.";
+      setSaveError(
+        detail
+          ? `Não foi possível salvar: ${detail}`
+          : "Não foi possível salvar o produto. Verifique os logs e tente novamente."
+      );
+      setSaving(false);
+      return;
+    }
     setSaving(false);
     onClose();
   };
@@ -110,6 +183,9 @@ export function ProductFormModal({ open, onClose, product }: Props) {
                     fill
                     sizes="(max-width: 768px) 100vw, 480px"
                     className="object-cover"
+                    unoptimized={
+                      form.image_url.startsWith("data:") || form.image_url.startsWith("blob:")
+                    }
                   />
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <label className="cursor-pointer">
@@ -219,6 +295,9 @@ export function ProductFormModal({ open, onClose, product }: Props) {
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : product ? "Salvar" : "Criar Produto"}
               </Button>
             </div>
+            {saveError && (
+              <p className="text-xs text-destructive pt-1">{saveError}</p>
+            )}
           </form>
         </ScrollArea>
       </DialogContent>

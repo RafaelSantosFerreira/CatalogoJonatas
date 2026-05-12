@@ -7,7 +7,7 @@ tags:
   - runbook
   - operacao
 status: ativo
-atualizado_em: 2026-05-08
+atualizado_em: 2026-05-11
 ---
 
 # Runbooks Operacionais - CatalogoJonatas
@@ -30,8 +30,8 @@ Guias curtos para execucao rapida por agentes/devs, com foco em repetibilidade e
 2. Instalar dependencias:
    - `npm install --legacy-peer-deps`
 3. Verificar variaveis de ambiente obrigatorias:
-   - `NEXT_PUBLIC_DATABASE_URL`
-   - `NEXT_PUBLIC_DATABASE_PUBLISHABLE_KEY`
+   - `SUPABASE_API_URL`
+   - `SUPABASE_ANON_KEY`
    - `DATABASE_URL`
    - `DATABASE_SERVICE_ROLE_KEY`
 4. Testar conexao com banco:
@@ -100,3 +100,10 @@ Guias curtos para execucao rapida por agentes/devs, com foco em repetibilidade e
 - [ ] Validou health da app
 - [ ] Executou fluxo de carrinho
 - [ ] Registrou incidente/correcao se houver
+
+## Runbook - Dev local (404 / EMFILE)
+
+- Usar `npm run dev` na raiz do repositorio; abrir a URL **Local** impressa (porta pode nao ser 3000).
+- Se `/` retornar 404 ou Watchpack EMFILE: `npm run dev:poll` ou aumentar `ulimit -n` antes do dev.
+- `npm run dev:turbo` apenas se o ambiente suportar Turbopack sem estouro de watchers.
+

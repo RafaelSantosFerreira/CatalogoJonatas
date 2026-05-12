@@ -26,7 +26,9 @@ export default function CatalogPage() {
   const [viewOpen, setViewOpen] = useState(false);
   const [selected, setSelected] = useState<Product | null>(null);
 
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
+  useEffect(() => {
+    void fetchProducts("catalog");
+  }, [fetchProducts]);
 
   const filtered = products.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()) ||

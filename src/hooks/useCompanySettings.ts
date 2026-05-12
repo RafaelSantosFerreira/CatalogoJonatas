@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { withTimeout } from "@/lib/with-timeout";
 import type { CompanySettings, CompanySettingsFormData } from "@/types/company-settings";
 
 export function useCompanySettings() {
@@ -12,12 +13,17 @@ export function useCompanySettings() {
 
   const fetchSettings = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("company_settings")
-      .select("*")
-      .maybeSingle();
-    if (data) setSettings(data as CompanySettings);
-    setLoading(false);
+    try {
+      const res = await withTimeout(
+        supabase.from("company_settings").select("*").maybeSingle().then((r) => r),
+        20_000
+      );
+      if (res?.data) setSettings(res.data as CompanySettings);
+    } catch {
+      /* rede */
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {

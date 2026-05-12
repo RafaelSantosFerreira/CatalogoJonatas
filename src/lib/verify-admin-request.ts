@@ -20,7 +20,8 @@ export async function getAdminUserIdFromRequest(request: Request): Promise<strin
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
-  const { data: userData, error: userErr } = await client.auth.getUser();
+  // Em rotas server-side sem sessão persistida, precisamos passar o JWT explicitamente.
+  const { data: userData, error: userErr } = await client.auth.getUser(token);
   if (userErr || !userData.user) return null;
   const uid = userData.user.id;
   const userEmail = (userData.user.email || "").trim().toLowerCase();

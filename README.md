@@ -60,13 +60,20 @@ Abra a URL exibida no terminal (normalmente `http://localhost:3000`).
 ### Scripts disponiveis
 
 ```bash
-npm run dev          # desenvolvimento
+npm run dev          # desenvolvimento (webpack + polling de arquivos por padrao; reduz 404 por EMFILE)
+npm run dev:turbo    # mesmo dev com Turbopack (mais rapido se o sistema aguentar os watchers)
+npm run dev:poll     # igual ao dev (polling ja e padrao; mantido por compatibilidade)
+npm run dev:clean    # apaga `.next-dev` e sobe o dev (util se rotas ficarem 404 / cache estranho)
+npm run dev:lan      # dev escutando em 0.0.0.0 (acesso na LAN)
 npm run build        # build de producao
 npm run start        # sobe build
 npm run lint         # lint
-npm run test:db      # testa conexao com banco
+npm run test:db      # testa conexao com banco (HTTP + PostgREST)
+npm run test:db:crud # DDL/DML no Postgres (precisa POSTGRES_URL ou SUPABASE_DB_* no .env.local)
 npm run test:twilio  # testa envio WhatsApp direto na Twilio
 ```
+
+Se ainda aparecer **404 em `/` no dev** com muitos `EMFILE` no terminal: reinicie o `npm run dev` (agora com **polling** por padrao), aumente `ulimit -n`, ou evite `dev:turbo`. Para desativar polling nativo do webpack: `NEXT_DISABLE_WATCH_POLL=1 npm run dev` (e opcionalmente `WATCHPACK_POLLING=0`).
 
 ---
 
@@ -76,8 +83,8 @@ Copie `.env.example` para `.env.local` e preencha.
 
 ### Obrigatorias para rodar
 
-- `NEXT_PUBLIC_DATABASE_URL`
-- `NEXT_PUBLIC_DATABASE_PUBLISHABLE_KEY`
+- `SUPABASE_API_URL`
+- `SUPABASE_ANON_KEY`
 - `DATABASE_URL`
 - `DATABASE_SERVICE_ROLE_KEY`
 
@@ -127,8 +134,8 @@ Copie `.env.example` para `.env.local` e preencha.
 ### Passo 4 - Preencher `.env.local`
 
 ```env
-NEXT_PUBLIC_DATABASE_URL=https://seu-projeto.supabase.co
-NEXT_PUBLIC_DATABASE_PUBLISHABLE_KEY=...
+SUPABASE_API_URL=https://seu-projeto.supabase.co/rest/v1/
+SUPABASE_ANON_KEY=...
 DATABASE_URL=https://seu-projeto.supabase.co
 DATABASE_SERVICE_ROLE_KEY=...
 ```

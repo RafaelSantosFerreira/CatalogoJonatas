@@ -5,7 +5,7 @@ const { url, key, isConfigured } = getServerSupabaseConfig();
 
 if (typeof process !== "undefined" && process.env.NODE_ENV === "development" && !isConfigured) {
   console.warn(
-    "[Supabase Admin] Defina DATABASE_URL e DATABASE_SERVICE_ROLE_KEY em .env.local para APIs server-side (veja .env.example)."
+    "[Supabase Admin] Defina SUPABASE_API_URL + DATABASE_SERVICE_ROLE_KEY (ou SUPABASE_SERVICE_ROLE_KEY). DATABASE_URL https é opcional e deve ser o mesmo projeto."
   );
 }
 

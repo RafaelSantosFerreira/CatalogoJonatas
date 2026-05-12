@@ -61,3 +61,6 @@ temp/
 
 # Local run env
 run/.env.user
+
+# TypeScript incremental
+*.tsbuildinfo

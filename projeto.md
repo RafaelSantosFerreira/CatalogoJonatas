@@ -20,8 +20,6 @@ ferragem-pro/
 │   │   │   ├── setup/route.ts      # Setup do usuário admin inicial
 │   │   │   ├── whatsapp/route.ts   # Envio de mensagens WhatsApp via Twilio
 │   │   │   └── whatsapp-logs/route.ts # Listagem dos logs de WhatsApp
-│   │   ├── zoer_proxy/             # Proxy interno (não modificar)
-│   │   │   └── [...path]/route.ts  # Rota catch-all do proxy
 │   │   ├── error.tsx               # Página de erro global
 │   │   ├── global-error.tsx        # Erro global de layout
 │   │   ├── globals.css             # Estilos globais + Tailwind CSS v4
@@ -68,8 +66,7 @@ ferragem-pro/
 │   ├── hooks/                      # Custom hooks React
 │   │   ├── use-mobile.tsx          # Hook para detectar dispositivo mobile
 │   │   ├── use-toast.ts            # Hook de notificações toast
-│   │   ├── useCompanySettings.ts   # Hook para buscar/salvar configurações da empresa
-│   │   └── useZoerIframe.ts        # Hook para comunicação com iframe Zoer
+│   │   └── useCompanySettings.ts   # Hook para buscar/salvar configurações da empresa
 │   ├── integrations/               # Integrações externas
 │   │   └── supabase/
 │   │       ├── client.ts           # Cliente Supabase (client-side, respeita RLS)
@@ -80,12 +77,11 @@ ferragem-pro/
 │   │   └── utils.ts                # Utilitário `cn()` para merge de classes Tailwind
 │   ├── store/                      # Stores de estado
 │   │   └── productStore.ts         # Store de produtos (CRUD via Supabase)
-│   ├── types/                      # Definições de tipos TypeScript
-│   │   ├── cart.ts                 # Tipos do carrinho (CartItem, SelectedAttributes)
-│   │   ├── company-settings.ts     # Tipos das configurações da empresa
-│   │   ├── customer.ts             # Tipos do cliente (Customer, CustomerFormData)
-│   │   └── product.ts              # Tipos do produto (Product, ProductColor, etc.)
-│   └── middleware.ts               # Middleware Next.js (headers CORS e iframe)
+│   └── types/                      # Definições de tipos TypeScript
+│       ├── cart.ts                 # Tipos do carrinho (CartItem, SelectedAttributes)
+│       ├── company-settings.ts     # Tipos das configurações da empresa
+│       ├── customer.ts             # Tipos do cliente (Customer, CustomerFormData)
+│       └── product.ts              # Tipos do produto (Product, ProductColor, etc.)
 ├── run/
 │   └── .env.user                   # Variáveis de ambiente do usuário (não commitar)
 ├── .gitignore                      # Arquivos ignorados pelo Git
@@ -115,8 +111,6 @@ ferragem-pro/
 | `global-error.tsx` | Página de erro global. Captura erros no layout raiz da aplicação. |
 | `admin/page.tsx` | Página do painel administrativo. Renderiza o `AdminPageClient` (protegido por autenticação). |
 | `admin/login/page.tsx` | Página de login do administrador. Renderiza o formulário `LoginForm`. |
-| `zoer_proxy/[...path]/route.ts` | Rota de proxy interna do Zoer. **Não deve ser modificada.** |
-
 ---
 
 ### 🔌 Rotas de API (`src/app/api/`)
@@ -169,7 +163,7 @@ ferragem-pro/
 | `VolumeFields.tsx` | Campos dinâmicos para adicionar/remover volumes de um produto (valor e unidade). |
 | `ThemeProvider.tsx` | Provider de tema usando `next-themes`. Suporta modo claro, escuro e sistema. |
 | `ThemeToggle.tsx` | Botão de alternância entre tema claro e escuro usando ícones do `lucide-react`. |
-| `GlobalClientEffects.tsx` | Componente client-side que inicializa efeitos globais, como o hook `useZoerIframe`. |
+| `GlobalClientEffects.tsx` | Efeitos globais no cliente (ex.: captura de erros via `GlobalErrorCapture`). |
 | `Error.tsx` | Componente genérico de exibição de mensagem de erro. |
 
 ---
@@ -189,7 +183,6 @@ ferragem-pro/
 | Arquivo | Descrição |
 |---|---|
 | `useCompanySettings.ts` | Busca e salva as configurações da empresa na tabela `company_settings`. Expõe `settings`, `loading`, `saving`, `saveSettings` e `refetch`. |
-| `useZoerIframe.ts` | Gerencia a comunicação bidirecional com o iframe do Zoer. Escuta mensagens de navegação (`back`, `forward`) e envia o estado de navegação atual para o pai. |
 | `use-mobile.tsx` | Detecta se o dispositivo atual é mobile com base no breakpoint de 768px. |
 | `use-toast.ts` | Implementação customizada do sistema de toast (notificações temporárias) baseada em reducer. |
 
@@ -199,7 +192,7 @@ ferragem-pro/
 
 | Arquivo | Descrição |
 |---|---|
-| `client.ts` | Cria e exporta o cliente Supabase para uso no lado do cliente. Usa as variáveis `NEXT_PUBLIC_DATABASE_URL` e `NEXT_PUBLIC_DATABASE_PUBLISHABLE_KEY`. Respeita as políticas RLS. **Arquivo protegido — não modificar.** |
+| `client.ts` | Cria e exporta o cliente Supabase para uso no lado do cliente. Usa as variáveis `SUPABASE_API_URL` e `SUPABASE_ANON_KEY`. Respeita as políticas RLS. **Arquivo protegido — não modificar.** |
 | `server.ts` | Cria e exporta o cliente Supabase Admin para uso no lado do servidor (API routes). Usa `DATABASE_URL` e `DATABASE_SERVICE_ROLE_KEY`. Bypassa as políticas RLS. **Arquivo protegido — não modificar.** |
 | `types.ts` | Definições de tipos TypeScript geradas a partir do schema do Supabase. |
 
@@ -245,8 +238,7 @@ ferragem-pro/
 
 | Arquivo | Descrição |
 |---|---|
-| `next.config.ts` | Configuração do Next.js. Define headers CORS, permissão de iframe (`X-Frame-Options: ALLOWALL`), domínios de imagens permitidos (Pexels, Unsplash, etc.) e ignora erros de ESLint/TypeScript no build. |
-| `middleware.ts` | Middleware do Next.js. Adiciona headers `X-Frame-Options: ALLOWALL` e `Content-Security-Policy: frame-ancestors *` em todas as rotas não-API para permitir embedding via iframe. |
+| `next.config.ts` | Configuração do Next.js. Define headers de segurança (CSP, `X-Frame-Options: SAMEORIGIN`, COOP, etc.), domínios de imagens remotas e `distDir` separado em dev (`.next-dev`). |
 | `postcss.config.mjs` | Configuração do PostCSS com o plugin `@tailwindcss/postcss` para Tailwind CSS v4. **Não modificar.** |
 | `components.json` | Configuração do shadcn/ui. Define o estilo, caminhos de componentes, aliases de importação e configurações do Tailwind. |
 | `tsconfig.json` | Configuração do TypeScript com paths aliases (`@/*` → `./src/*`), target ES2017 e suporte a JSX. |
@@ -283,8 +275,8 @@ ferragem-pro/
 
 | Variável | Uso | Lado |
 |---|---|---|
-| `NEXT_PUBLIC_DATABASE_URL` | URL do projeto Supabase | Client |
-| `NEXT_PUBLIC_DATABASE_PUBLISHABLE_KEY` | Chave anon/public do Supabase | Client |
+| `SUPABASE_API_URL` | URL REST do projeto Supabase (`.../rest/v1/`) | Client |
+| `SUPABASE_ANON_KEY` | Chave anon/public do Supabase | Client |
 | `DATABASE_URL` | URL do projeto Supabase | Server |
 | `DATABASE_SERVICE_ROLE_KEY` | Chave service_role do Supabase (admin) | Server |
 

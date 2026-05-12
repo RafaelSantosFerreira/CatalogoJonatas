@@ -11,7 +11,7 @@ Este documento descreve a arquitetura, os fluxos principais e os módulos do pro
 | **Nome / tema** | Catálogo “Ferragem Pro” — produtos de ferragem com gestão e pedidos |
 | **Idioma da UI** | Português (BR), metadados em `layout.tsx` com `lang="pt-BR"` |
 | **Stack** | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4, Supabase (`@supabase/supabase-js`), Radix UI, shadcn-style em `src/components/ui`, Framer Motion, Sonner (toasts) |
-| **Gerenciador de pacotes** | PNPM (conforme `AGENTS.md` e `pnpm-lock.yaml`) |
+| **Gerenciador de pacotes** | npm ou pnpm (`package-lock.yaml` e `pnpm-lock.yaml` no repositório) |
 
 O `package.json` ainda usa o nome genérico `nextjs-template`; o título público vem de `metadata` em `src/app/layout.tsx`.
 
@@ -25,16 +25,15 @@ siteJonatas/
 │   ├── app/                 # Rotas Next.js (App Router)
 │   ├── components/          # Componentes da loja + admin + UI
 │   ├── context/             # Auth, Carrinho, Cliente
-│   ├── hooks/               # useCompanySettings, useZoerIframe, use-mobile, use-toast
+│   ├── hooks/               # useCompanySettings, use-mobile, use-toast
 │   ├── integrations/supabase/
 │   ├── lib/                 # Utilitários e texto de pedido / WhatsApp
 │   ├── store/               # useProductStore (produtos + CRUD)
-│   ├── types/               # Tipos TS (produto, carrinho, cliente, empresa)
-│   └── middleware.ts        # Headers para iframe / CSP
+│   └── types/               # Tipos TS (produto, carrinho, cliente, empresa)
 ├── auth/                    # Scripts SQL de schema (Supabase/auth)
 ├── run/                     # Arquivos auxiliares de ambiente (não versionar segredos)
 ├── app.sql                  # Schema principal da aplicação (tabelas públicas)
-├── AGENTS.md                # Instruções do template (Zoer / Supabase)
+├── AGENTS.md                # Instruções para agentes / stack
 ├── next.config.ts
 ├── package.json
 └── tsconfig.json
@@ -65,9 +64,7 @@ Arquivos de suporte: `layout.tsx` (fontes Geist, providers, Toaster), `globals.c
 | `POST` `/api/seed-twilio` | `api/seed-twilio/route.ts` | Insere/atualiza `company_settings` com valores Twilio padrão (risco de segurança em produção — ver seção 10) |
 | `POST` `/api/whatsapp` | `api/whatsapp/route.ts` | Envia mensagem WhatsApp via API Twilio (Content SID + variáveis), lê credenciais de `company_settings`, grava `whatsapp_logs`, opcionalmente atualiza `orders.whatsapp_sent` |
 | `GET` `/api/whatsapp-logs` | `api/whatsapp-logs/route.ts` | Lista logs (query params `limit`, `status`), usa `supabaseAdmin` |
-| `*` `/zoer_proxy/[...path]` | `zoer_proxy/[...path]/route.ts` | Proxy genérico para `https://api.zoer.ai` com headers `x-zoer-auth` / `Postgrest-API-Key` a partir de `POSTGREST_API_KEY` |
-
-Integração Zoer adicional: dependência `@zoerai/integration` no `package.json` (uso pontual em hooks como `useZoerIframe`, se aplicável ao seu fluxo).
+| `POST` `/api/admin-login` | `api/admin-login/route.ts` | Login admin via servidor (Supabase password grant); rate limit por IP |
 
 ---
 
@@ -94,7 +91,7 @@ A pasta `auth/` contém migrações SQL complementares (RLS, funções, conector
 
 | Arquivo | Papel |
 |---------|--------|
-| `client.ts` | Cliente browser com `NEXT_PUBLIC_DATABASE_URL` e `NEXT_PUBLIC_DATABASE_PUBLISHABLE_KEY`; sessão em `localStorage` |
+| `client.ts` | Cliente browser com `SUPABASE_API_URL` e `SUPABASE_ANON_KEY`; sessão em `localStorage` |
 | `server.ts` | `supabaseAdmin` com `DATABASE_URL` e `DATABASE_SERVICE_ROLE_KEY` (operações server-side, sem RLS do cliente) |
 
 Consultas de produto/carrinho/cliente/configurações usam o **client** no browser. Rotas sensíveis (`whatsapp`, `whatsapp-logs`, `setup`, `seed-twilio`) usam **admin** no servidor.
@@ -148,20 +145,14 @@ Painel admin (pasta `src/components/admin/`):
 
 ### Variáveis de ambiente (esperadas)
 
-- **Públicas:** `NEXT_PUBLIC_DATABASE_URL`, `NEXT_PUBLIC_DATABASE_PUBLISHABLE_KEY`  
+- **Públicas:** `SUPABASE_API_URL`, `SUPABASE_ANON_KEY`  
 - **Servidor:** `DATABASE_URL`, `DATABASE_SERVICE_ROLE_KEY`  
-- **Proxy Zoer:** `POSTGREST_API_KEY` (usado em `zoer_proxy`)
-
 Arquivo em `run/` pode conter overrides locais; **não commitar** segredos reais.
 
 ### `next.config.ts`
 
 - `eslint.ignoreDuringBuilds` e `typescript.ignoreBuildErrors` estão **ativos** — builds podem passar com erros de tipo/lint; recomendável desativar em CI/produção quando o código estiver estável.  
-- Headers globais: CORS permissivo (`Access-Control-Allow-Origin: *`), `X-Frame-Options: ALLOWALL`, CSP `frame-ancestors` ampla — adequado se o site for embutido em iframe; revisar para ambientes restritos.
-
-### `middleware.ts`
-
-Reforça headers de iframe/CSP para rotas que não são `api`, `_next`, etc.
+- Headers globais: CSP, `X-Frame-Options: SAMEORIGIN`, `Cross-Origin-Opener-Policy`, etc. (sem middleware duplicado — tudo em `next.config.ts`).
 
 ### Alertas de segurança no código
 
@@ -184,8 +175,9 @@ Reforça headers de iframe/CSP para rotas que não são `api`, `_next`, etc.
 
 | Script | Comando |
 |--------|---------|
-| `dev` | `next dev --turbopack` |
-| `dev:debug` | Node com `--inspect` + `next dev` |
+| `dev` | `bash scripts/run-next-dev.sh` + `next dev --hostname 127.0.0.1` (webpack por padrão) |
+| `dev:turbo` | Mesmo fluxo com `--turbopack` |
+| `dev:debug` | Node com `--inspect` + dev acima |
 | `build` | `next build` |
 | `start` | `next start --port 3000` |
 | `lint` | `next lint` |

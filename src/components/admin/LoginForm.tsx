@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Wrench, Loader2, Eye, EyeOff, ShieldCheck, Settings } from "lucide-react";
@@ -19,11 +19,27 @@ export function LoginForm() {
   const { signIn } = useAuth();
   const appName = useAppDisplayName();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [setupLoading, setSetupLoading] = useState(false);
+
+  useEffect(() => {
+    const reason = searchParams.get("reason");
+    if (!reason) return;
+    if (reason === "access_denied") {
+      toast.error(
+        "Acesso ao painel negado: use o mesmo e-mail de SETUP_ADMIN_EMAIL no servidor, confirme o e-mail no Supabase e garanta role admin em user_roles."
+      );
+    } else if (reason === "timeout") {
+      toast.error("Validação do acesso demorou demais. Tente entrar novamente.");
+    } else if (reason === "network") {
+      toast.error("Falha de rede ao validar o acesso. Verifique sua conexão e tente de novo.");
+    }
+    router.replace("/admin/login");
+  }, [searchParams, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +47,9 @@ export function LoginForm() {
     setLoading(true);
     const { error } = await signIn(email, password);
     if (error) {
-      toast.error("Credenciais inválidas. Verifique seu e-mail e senha.");
+      toast.error(
+        error.length > 120 ? `${error.slice(0, 120)}…` : error
+      );
     } else {
       toast.success("Login realizado com sucesso!");
       router.push("/admin");

@@ -16,6 +16,18 @@ const csp = [
 
 const nextConfig: NextConfig = {
   distDir: isDev ? ".next-dev" : ".next",
+  /** Em dev, polling evita EMFILE no macOS e o bug em que só compila `/_not-found` e `/` retorna 404. */
+  webpack: (config, { dev }) => {
+    if (dev && process.env.NEXT_DISABLE_WATCH_POLL !== "1") {
+      config.watchOptions = {
+        ...config.watchOptions,
+        poll: 1000,
+        aggregateTimeout: 600,
+        ignored: ["**/node_modules/**", "**/.git/**", "**/.next/**", "**/.next-dev/**"],
+      };
+    }
+    return config;
+  },
   async headers() {
     return [
       {
