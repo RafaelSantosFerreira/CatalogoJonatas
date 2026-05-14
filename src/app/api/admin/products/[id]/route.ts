@@ -2,7 +2,7 @@ import { getAdminUserIdFromRequest } from "@/lib/verify-admin-request";
 import { supabaseAdmin, supabaseAdminConfigured } from "@/integrations/supabase/server";
 import { loadProductById } from "@/lib/load-products-enriched";
 import { parseProductPrice, saveProductDetails } from "@/lib/product-mutations";
-import { logAppError } from "@/lib/app-logger";
+import { logAppError, messageFromUnknown } from "@/lib/app-logger";
 import type { ProductFormData } from "@/types/product";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +49,7 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
         category: data.category || null,
         brand: data.brand || null,
         sku: data.sku || null,
+        internal_code: data.internal_code?.trim() || null,
         active: data.active,
         updated_at: new Date().toISOString(),
       })
@@ -67,7 +68,7 @@ export async function PUT(request: Request, ctx: { params: Promise<{ id: string 
     return Response.json({ product: enriched });
   } catch (e) {
     logAppError("api/admin/products.PUT", e);
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = messageFromUnknown(e);
     return Response.json({ error: msg }, { status: 400 });
   }
 }
@@ -95,7 +96,7 @@ export async function DELETE(request: Request, ctx: { params: Promise<{ id: stri
     return new Response(null, { status: 204 });
   } catch (e) {
     logAppError("api/admin/products.DELETE", e);
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = messageFromUnknown(e);
     return Response.json({ error: msg }, { status: 400 });
   }
 }

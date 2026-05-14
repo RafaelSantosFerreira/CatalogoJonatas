@@ -19,8 +19,8 @@ import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { PHONE_COUNTRIES } from "@/data/phone-countries";
 import type { CompanySettingsFormData } from "@/types/company-settings";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { createTraceId, logAppInfo, logAppWarn } from "@/lib/app-logger";
+import { getAdminAccessTokenForClient } from "@/lib/get-admin-access-token-client";
 
 const INITIAL: CompanySettingsFormData = {
   company_name: "",
@@ -116,10 +116,8 @@ export function CompanySettingsPanel() {
   const handleApplyPreset = async () => {
     setSeeding(true);
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.access_token) {
+      const token = await getAdminAccessTokenForClient();
+      if (!token) {
         toast.error("Sessão expirada. Faça login novamente.");
         setSeeding(false);
         return;
@@ -127,7 +125,7 @@ export function CompanySettingsPanel() {
       const res = await fetch("/api/seed-twilio", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
       const data = await res.json();
@@ -153,8 +151,8 @@ export function CompanySettingsPanel() {
 
   const testNotification = async (channel: "whatsapp" | "email") => {
     const traceId = createTraceId(`admin-${channel}`);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
+    const token = await getAdminAccessTokenForClient();
+    if (!token) {
       toast.error("Sessão expirada. Entre novamente no painel.");
       return;
     }
@@ -170,7 +168,7 @@ export function CompanySettingsPanel() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${token}`,
           "x-trace-id": traceId,
           "x-flow-source": "admin-test-button",
         },

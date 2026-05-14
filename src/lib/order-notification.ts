@@ -30,8 +30,12 @@ function buildItemLine(item: CartItem): string {
     .filter(Boolean)
     .join(", ");
 
+  const internal =
+    (item.product_internal_code ?? item.product?.internal_code)?.trim() || "";
+  const internalText = internal ? ` · CI: ${internal}` : "";
+
   const attrText = attrs ? ` (${attrs})` : "";
-  return `• ${name}${attrText} — ${item.quantity}x ${unit} = ${subtotal}`;
+  return `• ${name}${internalText}${attrText} — ${item.quantity}x ${unit} = ${subtotal}`;
 }
 
 export function buildOrderText(
@@ -85,7 +89,8 @@ function buildContentVariables(
   const itemsSummary = items
     .map((item) => {
       const name = item.product?.name ?? "Produto";
-      return `${item.quantity}x ${name}`;
+      const ci = (item.product_internal_code ?? item.product?.internal_code)?.trim();
+      return `${item.quantity}x ${name}${ci ? ` (CI:${ci})` : ""}`;
     })
     .join(", ");
 

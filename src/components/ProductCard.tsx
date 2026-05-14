@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/context/CartContext";
 import { useCustomer } from "@/context/CustomerContext";
-import { useState } from "react";
+import { useState, memo } from "react";
 import { toast } from "sonner";
 import type { Product } from "@/types/product";
 import type { SelectedAttributes } from "@/types/cart";
@@ -31,7 +31,7 @@ interface ProductCardProps {
   showPrices?: boolean;
 }
 
-export function ProductCard({ product, onView, onEdit, onDelete, showPrices = true }: ProductCardProps) {
+export const ProductCard = memo(function ProductCard({ product, onView, onEdit, onDelete, showPrices = true }: ProductCardProps) {
   const { addItem } = useCart();
   const { customer } = useCustomer();
   const [registerOpen, setRegisterOpen] = useState(false);
@@ -201,4 +201,4 @@ export function ProductCard({ product, onView, onEdit, onDelete, showPrices = tr
       </motion.div>
     </>
   );
-}
+});

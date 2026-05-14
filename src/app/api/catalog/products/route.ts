@@ -1,7 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { getPublicSupabaseConfig } from "@/lib/supabase-env";
 import { loadProductsEnriched } from "@/lib/load-products-enriched";
-import { logAppError } from "@/lib/app-logger";
+import { logAppError, messageFromUnknown } from "@/lib/app-logger";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +19,7 @@ export async function GET() {
     return Response.json({ products });
   } catch (e) {
     logAppError("api/catalog/products.GET", e);
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = messageFromUnknown(e);
     return Response.json({ error: msg }, { status: 502 });
   }
 }

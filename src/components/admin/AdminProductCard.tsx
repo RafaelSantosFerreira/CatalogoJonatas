@@ -1,8 +1,8 @@
-
 "use client";
 
 import { Package, Pencil, Trash2, Eye, Tag } from "lucide-react";
 import { motion } from "framer-motion";
+import { memo } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +15,12 @@ interface AdminProductCardProps {
   onDelete: (product: Product) => void;
 }
 
-export function AdminProductCard({ product, onView, onEdit, onDelete }: AdminProductCardProps) {
+export const AdminProductCard = memo(function AdminProductCard({
+  product,
+  onView,
+  onEdit,
+  onDelete,
+}: AdminProductCardProps) {
   const formattedPrice =
     product.price != null
       ? product.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
@@ -94,4 +99,4 @@ export function AdminProductCard({ product, onView, onEdit, onDelete }: AdminPro
       </div>
     </motion.div>
   );
-}
+});

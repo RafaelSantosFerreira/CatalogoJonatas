@@ -14,6 +14,8 @@ export interface CartItem {
   selected_size_label?: string | null;
   selected_volume_id?: string | null;
   selected_volume_label?: string | null;
+  /** Snapshot do `products.internal_code` ao gravar no carrinho. */
+  product_internal_code?: string | null;
 }
 
 export interface SelectedAttributes {

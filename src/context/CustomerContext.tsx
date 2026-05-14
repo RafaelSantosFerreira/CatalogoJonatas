@@ -1,7 +1,7 @@
 
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Customer, CustomerFormData } from "@/types/customer";
 
@@ -54,11 +54,12 @@ export function CustomerProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
-  return (
-    <CustomerContext.Provider value={{ customer, loading, saveCustomer, clearCustomer }}>
-      {children}
-    </CustomerContext.Provider>
+  const customerValue = useMemo(
+    () => ({ customer, loading, saveCustomer, clearCustomer }),
+    [customer, loading, saveCustomer, clearCustomer]
   );
+
+  return <CustomerContext.Provider value={customerValue}>{children}</CustomerContext.Provider>;
 }
 
 export function useCustomer() {

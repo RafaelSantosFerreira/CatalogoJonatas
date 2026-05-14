@@ -31,6 +31,23 @@ export function serializeUnknown(error: unknown): {
   }
 }
 
+/** Texto para APIs e UI — PostgREST/Supabase muitas vezes devolvem objeto, não `Error`. */
+export function messageFromUnknown(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    const o = error as { message?: unknown; code?: unknown; details?: unknown; hint?: unknown };
+    if (typeof o.message === "string" && o.message.trim()) {
+      const parts: string[] = [o.message.trim()];
+      if (typeof o.code === "string" && o.code) parts.push(`(${o.code})`);
+      if (typeof o.details === "string" && o.details.trim()) parts.push(o.details.trim());
+      if (typeof o.hint === "string" && o.hint.trim()) parts.push(`Dica: ${o.hint.trim()}`);
+      return parts.join(" ");
+    }
+  }
+  return serializeUnknown(error).message;
+}
+
 function buildPayload(
   source: string,
   level: "error" | "warn" | "info",

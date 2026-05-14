@@ -8,6 +8,7 @@ CREATE TABLE products (
   category VARCHAR(100),
   brand VARCHAR(100),
   sku VARCHAR(100),
+  internal_code VARCHAR(100),
   active BOOLEAN DEFAULT true,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -874,3 +875,21 @@ CREATE POLICY "Inserção pública de logs WhatsApp" ON public.whatsapp_logs
 CREATE TRIGGER update_whatsapp_logs_updated_at
     BEFORE UPDATE ON public.whatsapp_logs
     FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
+
+-- ================================================
+-- Código interno do produto + snapshot no carrinho e no pedido
+-- ================================================
+ALTER TABLE public.products
+    ADD COLUMN IF NOT EXISTS internal_code VARCHAR(100);
+
+COMMENT ON COLUMN public.products.internal_code IS 'Código de controle interno; copiado para cart_items e order_items ao gravar.';
+
+ALTER TABLE public.cart_items
+    ADD COLUMN IF NOT EXISTS product_internal_code VARCHAR(100);
+
+COMMENT ON COLUMN public.cart_items.product_internal_code IS 'Snapshot do internal_code do produto ao incluir ou atualizar linha no carrinho.';
+
+ALTER TABLE public.order_items
+    ADD COLUMN IF NOT EXISTS product_internal_code VARCHAR(100);
+
+COMMENT ON COLUMN public.order_items.product_internal_code IS 'Snapshot do código interno no momento do pedido.';

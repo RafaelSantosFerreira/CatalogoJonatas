@@ -14,7 +14,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ColorFields } from "@/components/ColorFields";
 import { SizeFields } from "@/components/SizeFields";
 import { VolumeFields } from "@/components/VolumeFields";
-import { logAppError } from "@/lib/app-logger";
+import { logAppError, messageFromUnknown } from "@/lib/app-logger";
 import { useProductStore } from "@/store/productStore";
 import type { Product, ProductFormData } from "@/types/product";
 
@@ -32,7 +32,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
 
 const EMPTY_FORM: ProductFormData = {
   name: "", description: "", price: "", image_url: "",
-  category: "", brand: "", sku: "", active: true,
+  category: "", brand: "", sku: "", internal_code: "", active: true,
   colors: [], sizes: [], volumes: [],
 };
 
@@ -95,6 +95,7 @@ export function ProductFormModal({ open, onClose, product }: Props) {
         category: product.category ?? "",
         brand: product.brand ?? "",
         sku: product.sku ?? "",
+        internal_code: product.internal_code ?? "",
         active: product.active,
         colors: product.colors?.map((c) => ({ color_name: c.color_name, hex_code: c.hex_code ?? "" })) ?? [],
         sizes: product.sizes?.map((s) => ({ size_label: s.size_label, size_unit: s.size_unit ?? "" })) ?? [],
@@ -150,7 +151,7 @@ export function ProductFormModal({ open, onClose, product }: Props) {
         mode: product ? "update" : "create",
         name: form.name,
       });
-      const detail = e instanceof Error ? e.message : "Erro desconhecido.";
+      const detail = e instanceof Error ? e.message : messageFromUnknown(e);
       setSaveError(
         detail
           ? `Não foi possível salvar: ${detail}`
@@ -260,6 +261,17 @@ export function ProductFormModal({ open, onClose, product }: Props) {
               <div className="space-y-1.5">
                 <Label>SKU / Código</Label>
                 <Input value={form.sku} onChange={(e) => set("sku", e.target.value)} placeholder="Ex: PRF-001" />
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <Label>Código interno</Label>
+                <Input
+                  value={form.internal_code}
+                  onChange={(e) => set("internal_code", e.target.value)}
+                  placeholder="Controle interno (copiado ao carrinho na compra)"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Uso interno; é gravado junto com o item no carrinho e no pedido.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label>Preço (R$)</Label>

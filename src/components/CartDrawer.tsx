@@ -95,6 +95,7 @@ export function CartDrawer() {
         product_id: item.product_id,
         product_name: item.product?.name ?? "Produto",
         product_sku: item.product?.sku ?? null,
+        product_internal_code: item.product_internal_code ?? item.product?.internal_code ?? null,
         product_image_url: item.product?.image_url ?? null,
         quantity: item.quantity,
         unit_price: item.unit_price,

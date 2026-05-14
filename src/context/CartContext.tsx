@@ -1,7 +1,7 @@
 
 "use client";
 
-import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCustomer } from "./CustomerContext";
 import type { CartItem, SelectedAttributes } from "@/types/cart";
@@ -24,6 +24,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const { customer } = useCustomer();
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const itemsRef = useRef<CartItem[]>(items);
+  itemsRef.current = items;
 
   const fetchCart = useCallback(async (customerId: string) => {
     const { data } = await supabase
@@ -59,7 +61,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const sizeId = attrs?.size_id ?? null;
       const volumeId = attrs?.volume_id ?? null;
 
-      const existing = items.find(
+      const existing = itemsRef.current.find(
         (i) =>
           i.product_id === product.id &&
           (i.selected_color_id ?? null) === colorId &&
@@ -70,11 +72,21 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       if (existing) {
         await supabase
           .from("cart_items")
-          .update({ quantity: existing.quantity + 1, updated_at: new Date().toISOString() })
+          .update({
+            quantity: existing.quantity + 1,
+            updated_at: new Date().toISOString(),
+            product_internal_code: product.internal_code?.trim() || null,
+          })
           .eq("id", existing.id);
         setItems((prev) =>
           prev.map((i) =>
-            i.id === existing.id ? { ...i, quantity: i.quantity + 1 } : i
+            i.id === existing.id
+              ? {
+                  ...i,
+                  quantity: i.quantity + 1,
+                  product_internal_code: product.internal_code?.trim() || null,
+                }
+              : i
           )
         );
       } else {
@@ -91,6 +103,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
             selected_size_label: attrs?.size_label ?? null,
             selected_volume_id: volumeId,
             selected_volume_label: attrs?.volume_label ?? null,
+            product_internal_code: product.internal_code?.trim() || null,
           })
           .select("*")
           .maybeSingle();
@@ -98,7 +111,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       setLoading(false);
     },
-    [customer?.id, items]
+    [customer?.id]
   );
 
   const removeItem = useCallback(
@@ -137,13 +150,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const itemCount = items.reduce((sum, i) => sum + i.quantity, 0);
   const total = items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
 
-  return (
-    <CartContext.Provider
-      value={{ items, itemCount, total, loading, addItem, removeItem, updateQuantity, clearCart }}
-    >
-      {children}
-    </CartContext.Provider>
+  const cartValue = useMemo(
+    () => ({ items, itemCount, total, loading, addItem, removeItem, updateQuantity, clearCart }),
+    [items, itemCount, total, loading, addItem, removeItem, updateQuantity, clearCart]
   );
+
+  return <CartContext.Provider value={cartValue}>{children}</CartContext.Provider>;
 }
 
 export function useCart() {

@@ -29,6 +29,8 @@ export interface Product {
   category?: string;
   brand?: string;
   sku?: string;
+  /** Controle interno; copiado ao carrinho/pedido na gravação. */
+  internal_code?: string | null;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -45,6 +47,7 @@ export interface ProductFormData {
   category: string;
   brand: string;
   sku: string;
+  internal_code: string;
   active: boolean;
   colors: { color_name: string; hex_code: string }[];
   sizes: { size_label: string; size_unit: string }[];

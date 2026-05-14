@@ -2,9 +2,8 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { readStoredAdminTokens } from "@/lib/admin-bearer-storage";
-import { createTraceId, logAppError, logAppInfo } from "@/lib/app-logger";
+import { getAdminAccessTokenForClient } from "@/lib/get-admin-access-token-client";
+import { createTraceId, logAppError, logAppInfo, messageFromUnknown } from "@/lib/app-logger";
 import type { Product, ProductFormData } from "@/types/product";
 
 type Snap = { products: Product[]; loading: boolean };
@@ -37,14 +36,8 @@ function setSnap(next: Snap) {
   emit();
 }
 
-async function getAccessToken(): Promise<string | null> {
-  const { data } = await supabase.auth.getSession();
-  if (data.session?.access_token) return data.session.access_token;
-  return readStoredAdminTokens()?.access ?? null;
-}
-
 async function adminFetchJson<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const token = await getAccessToken();
+  const token = await getAdminAccessTokenForClient();
   if (!token) throw new Error("Sessão expirada. Faça login novamente.");
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${token}`);
@@ -62,14 +55,18 @@ async function adminFetchJson<T>(path: string, init: RequestInit = {}): Promise<
     }
   }
   if (!res.ok) {
-    const err = typeof json.error === "string" ? json.error : `Falha HTTP ${res.status}`;
+    const rawErr = json.error;
+    let err: string;
+    if (typeof rawErr === "string") err = rawErr;
+    else if (rawErr != null && typeof rawErr === "object") err = messageFromUnknown(rawErr);
+    else err = `Falha HTTP ${res.status}`;
     throw new Error(err);
   }
   return json as T;
 }
 
 async function adminFetchDelete(path: string): Promise<void> {
-  const token = await getAccessToken();
+  const token = await getAdminAccessTokenForClient();
   if (!token) throw new Error("Sessão expirada. Faça login novamente.");
   const res = await fetch(path, {
     method: "DELETE",
@@ -80,8 +77,8 @@ async function adminFetchDelete(path: string): Promise<void> {
   let msg = `Falha HTTP ${res.status}`;
   if (raw.trim()) {
     try {
-      const j = JSON.parse(raw) as { error?: string };
-      if (j.error) msg = j.error;
+      const j = JSON.parse(raw) as { error?: unknown };
+      if (j.error != null) msg = typeof j.error === "string" ? j.error : messageFromUnknown(j.error);
     } catch {
       msg = raw.slice(0, 200);
     }

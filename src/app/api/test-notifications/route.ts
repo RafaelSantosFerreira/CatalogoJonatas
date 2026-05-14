@@ -2,13 +2,31 @@ import { supabaseAdmin } from "@/integrations/supabase/server";
 import { createTraceId, logAppError, logAppInfo } from "@/lib/app-logger";
 import {
   fetchCompanyTwilioSettings,
+  type TwilioSettings,
   sendTwilioContentMessage,
   saveWhatsAppLogToDb,
 } from "@/lib/twilio-messaging.server";
 import { sendSmtpTest } from "@/lib/smtp-send.server";
 import { getAdminUserIdFromRequest } from "@/lib/verify-admin-request";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { getTwilioFromEnv } from "@/lib/env-twilio";
 import { z } from "zod";
+
+function trimStr(v: string | null | undefined): string {
+  return (v ?? "").trim();
+}
+
+/** Twilio para teste: usa `company_settings` e completa lacunas com o .env (sem gravar no banco). */
+function mergeTwilioForTest(db: TwilioSettings | null, env: ReturnType<typeof getTwilioFromEnv>) {
+  const e = env.ok ? env.data : null;
+  const d = db ?? {};
+  return {
+    twilio_account_sid: trimStr(d.twilio_account_sid) || trimStr(e?.twilio_account_sid),
+    twilio_auth_token: trimStr(d.twilio_auth_token) || trimStr(e?.twilio_auth_token),
+    twilio_whatsapp_from: trimStr(d.twilio_whatsapp_from) || trimStr(e?.twilio_whatsapp_from),
+    twilio_content_sid: trimStr(d.twilio_content_sid) || trimStr(e?.twilio_content_sid),
+  };
+}
 
 type Channel = "whatsapp" | "email";
 const notificationSchema = z.object({
@@ -83,25 +101,24 @@ export async function POST(request: Request) {
     }
 
     if (channel === "whatsapp") {
-      const s = await fetchCompanyTwilioSettings();
-      if (!s) {
+      const envTwilio = getTwilioFromEnv();
+      const sDb = await fetchCompanyTwilioSettings();
+      const s = mergeTwilioForTest(sDb, envTwilio);
+      const missing: string[] = [];
+      if (!s.twilio_account_sid) missing.push("Account SID");
+      if (!s.twilio_auth_token) missing.push("Auth Token");
+      if (!s.twilio_whatsapp_from) missing.push("WhatsApp From");
+      if (!s.twilio_content_sid) missing.push("Content SID");
+      if (missing.length > 0) {
+        const envHint = !envTwilio.ok
+          ? ` No servidor (arquivo carregado pelo Next), faltam no .env: ${envTwilio.missing.join(", ")}. Reinicie \`pnpm dev\` após editar .env.local, ou preencha no painel e salve.`
+          : " Reinicie o servidor de desenvolvimento se acabou de editar o .env.";
         return Response.json(
           {
             success: false,
-            error: "Configuração Twilio não encontrada. Salve as configurações primeiro.",
+            error: `Credenciais Twilio incompletas após juntar banco + .env: ${missing.join(", ")}.${envHint}`,
             traceId,
           },
-          { status: 400 }
-        );
-      }
-      if (
-        !s.twilio_account_sid ||
-        !s.twilio_auth_token ||
-        !s.twilio_whatsapp_from ||
-        !s.twilio_content_sid
-      ) {
-        return Response.json(
-          { success: false, error: "Preencha todas as credenciais Twilio e o Content SID.", traceId },
           { status: 400 }
         );
       }

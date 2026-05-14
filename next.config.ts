@@ -16,6 +16,9 @@ const csp = [
 
 const nextConfig: NextConfig = {
   distDir: isDev ? ".next-dev" : ".next",
+  experimental: {
+    optimizePackageImports: ["lucide-react", "framer-motion", "@radix-ui/react-icons"],
+  },
   /** Em dev, polling evita EMFILE no macOS e o bug em que só compila `/_not-found` e `/` retorna 404. */
   webpack: (config, { dev }) => {
     if (dev && process.env.NEXT_DISABLE_WATCH_POLL !== "1") {

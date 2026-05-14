@@ -1,7 +1,7 @@
 
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -10,6 +10,7 @@ import {
   persistAdminBearerTokens,
   readStoredAdminTokens,
 } from "@/lib/admin-bearer-storage";
+import { setCachedAdminAccessToken } from "@/lib/admin-session-bridge";
 import { logAppError } from "@/lib/app-logger";
 import { withTimeout } from "@/lib/with-timeout";
 
@@ -74,14 +75,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (error) logAppError("AuthContext.getSession", error);
         if (data.session) {
           persistAdminBearerTokens(data.session.access_token, data.session.refresh_token);
+          setCachedAdminAccessToken(data.session.access_token);
           setSession(data.session);
           setUser(data.session.user ?? null);
         } else {
           const restored = sessionFromStoredTokens();
           if (restored) {
+            setCachedAdminAccessToken(restored.session.access_token);
             setSession(restored.session);
             setUser(restored.user);
           } else {
+            setCachedAdminAccessToken(null);
             setSession(null);
             setUser(null);
           }
@@ -92,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logAppError("AuthContext.getSession.promise", e);
         const restored = sessionFromStoredTokens();
         if (restored) {
+          setCachedAdminAccessToken(restored.session.access_token);
           setSession(restored.session);
           setUser(restored.user);
         }
@@ -101,8 +106,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, s) => {
-      setSession(s);
-      setUser(s?.user ?? null);
+      if (s?.access_token) {
+        persistAdminBearerTokens(s.access_token, s.refresh_token);
+        setCachedAdminAccessToken(s.access_token);
+        setSession(s);
+        setUser(s.user ?? null);
+        return;
+      }
+      const restored = sessionFromStoredTokens();
+      if (restored) {
+        setCachedAdminAccessToken(restored.session.access_token);
+        setSession(restored.session);
+        setUser(restored.user);
+        return;
+      }
+      setCachedAdminAccessToken(null);
+      setSession(null);
+      setUser(null);
     });
 
     return () => subscription.unsubscribe();
@@ -142,12 +162,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         persistAdminBearerTokens(payload.access_token, payload.refresh_token);
+        setCachedAdminAccessToken(payload.access_token);
 
         const { data: sessData, error: sessErr } = await supabase.auth.setSession({
           access_token: payload.access_token,
           refresh_token: payload.refresh_token,
         });
         if (!sessErr && sessData.session) {
+          setCachedAdminAccessToken(sessData.session.access_token);
           setSession(sessData.session);
           setUser(sessData.session.user);
           return { error: null };
@@ -168,6 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setSession(sessionLike);
         setUser((payload.user as User | null) ?? null);
+        setCachedAdminAccessToken(payload.access_token);
         return { error: null };
       } catch (e) {
         logAppError("AuthContext.signIn.fallback.throw", e);
@@ -191,6 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Sem isso, o AdminGuard pode rodar com sessão nula logo após o login.
       if (data.session) {
         persistAdminBearerTokens(data.session.access_token, data.session.refresh_token);
+        setCachedAdminAccessToken(data.session.access_token);
         setSession(data.session);
         setUser(data.session.user ?? null);
       }
@@ -211,16 +235,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logAppError("AuthContext.signOut", e);
     } finally {
       clearAdminBearerTokens();
+      setCachedAdminAccessToken(null);
       setSession(null);
       setUser(null);
     }
   }, []);
 
-  return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signOut }}>
-      {children}
-    </AuthContext.Provider>
+  const authValue = useMemo(
+    () => ({ user, session, loading, signIn, signOut }),
+    [user, session, loading, signIn, signOut]
   );
+
+  return <AuthContext.Provider value={authValue}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

@@ -2,7 +2,7 @@ import { getAdminUserIdFromRequest } from "@/lib/verify-admin-request";
 import { supabaseAdmin, supabaseAdminConfigured } from "@/integrations/supabase/server";
 import { loadProductsEnriched, loadProductById } from "@/lib/load-products-enriched";
 import { parseProductPrice, saveProductDetails } from "@/lib/product-mutations";
-import { logAppError } from "@/lib/app-logger";
+import { logAppError, messageFromUnknown } from "@/lib/app-logger";
 import type { ProductFormData } from "@/types/product";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     return Response.json({ products });
   } catch (e) {
     logAppError("api/admin/products.GET", e);
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = messageFromUnknown(e);
     return Response.json({ error: msg }, { status: 502 });
   }
 }
@@ -62,6 +62,7 @@ export async function POST(request: Request) {
         category: data.category || null,
         brand: data.brand || null,
         sku: data.sku || null,
+        internal_code: data.internal_code?.trim() || null,
         active: data.active,
       })
       .select("*")
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
     return Response.json({ product: enriched });
   } catch (e) {
     logAppError("api/admin/products.POST", e);
-    const msg = e instanceof Error ? e.message : String(e);
+    const msg = messageFromUnknown(e);
     return Response.json({ error: msg }, { status: 400 });
   }
 }
