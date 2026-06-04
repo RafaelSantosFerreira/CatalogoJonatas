@@ -7,8 +7,9 @@ import { AdminProductsPanel } from "@/components/admin/AdminProductsPanel";
 import { CompanySettingsPanel } from "@/components/admin/CompanySettingsPanel";
 import { AdminStatsPanel } from "@/components/admin/AdminStatsPanel";
 import { AdminGuard } from "@/components/admin/AdminGuard";
+import { AdminOrdersPanel } from "@/components/admin/AdminOrdersPanel";
 
-type AdminTab = "products" | "stats" | "settings";
+type AdminTab = "products" | "stats" | "settings" | "orders";
 
 export function AdminPageClient() {
   const [activeTab, setActiveTab] = useState<AdminTab>("products");
@@ -19,6 +20,7 @@ export function AdminPageClient() {
         <AdminHeader activeTab={activeTab} onTabChange={setActiveTab} />
         {activeTab === "products" && <AdminProductsPanel />}
         {activeTab === "stats" && <AdminStatsPanel />}
+        {activeTab === "orders" && <AdminOrdersPanel />}
         {activeTab === "settings" && <CompanySettingsPanel />}
       </div>
     </AdminGuard>

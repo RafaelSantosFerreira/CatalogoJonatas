@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { IntegrityPanel } from "@/components/admin/IntegrityPanel";
 import { readStoredAdminTokens } from "@/lib/admin-bearer-storage";
 import { BarChart3, ShoppingCart, CalendarDays, BadgeDollarSign, Package } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from "recharts";
@@ -321,6 +322,8 @@ export function AdminStatsPanel() {
               </ChartContainer>
             )}
           </section>
+
+          <IntegrityPanel />
         </>
       )}
     </main>

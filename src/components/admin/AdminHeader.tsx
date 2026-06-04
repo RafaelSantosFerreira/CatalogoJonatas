@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Wrench, LogOut, ShieldCheck, Package, Settings, BarChart3 } from "lucide-react";
+import { Wrench, LogOut, ShieldCheck, Package, Settings, BarChart3, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -9,7 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useAppDisplayName } from "@/hooks/useAppDisplayName";
 import { toast } from "sonner";
 
-type AdminTab = "products" | "stats" | "settings";
+type AdminTab = "products" | "stats" | "settings" | "orders";
 
 interface AdminHeaderProps {
   activeTab?: AdminTab;
@@ -61,6 +61,15 @@ export function AdminHeader({ activeTab = "products", onTabChange }: AdminHeader
             Estatísticas
           </Button>
           <Button
+            variant={activeTab === "orders" ? "default" : "ghost"}
+            size="sm"
+            className="gap-1.5 h-7 text-xs"
+            onClick={() => onTabChange?.("orders")}
+          >
+            <ClipboardList className="h-3.5 w-3.5" />
+            Pedidos
+          </Button>
+          <Button
             variant={activeTab === "settings" ? "default" : "ghost"}
             size="sm"
             className="gap-1.5 h-7 text-xs"
@@ -102,6 +111,16 @@ export function AdminHeader({ activeTab = "products", onTabChange }: AdminHeader
           onClick={() => onTabChange?.("stats")}
         >
           <BarChart3 className="h-3.5 w-3.5" /> Estatísticas
+        </button>
+        <button
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
+            activeTab === "orders"
+              ? "text-primary border-b-2 border-primary"
+              : "text-muted-foreground"
+          }`}
+          onClick={() => onTabChange?.("orders")}
+        >
+          <ClipboardList className="h-3.5 w-3.5" /> Pedidos
         </button>
         <button
           className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
