@@ -1,41 +1,45 @@
-import { createClient } from "@supabase/supabase-js";
-import { supabaseAdmin } from "@/integrations/supabase/server";
-import { getPublicSupabaseConfig } from "@/lib/supabase-env";
+import jwt from "jsonwebtoken";
+import { db, schema } from "@/db";
+import { eq } from "drizzle-orm";
 import { getSetupAdminCredentials } from "@/lib/env-setup-admin";
 
-/**
- * Autentica o request via Bearer (sessão do admin) e confere papel admin em `user_roles`.
- * Retorna null se não for admin.
- */
+const JWT_SECRET = process.env.JWT_SECRET ?? "dev-secret-change-in-production";
+
+export interface AdminJwtPayload {
+  sub: string;
+  email: string;
+  iat?: number;
+  exp?: number;
+}
+
+export function signAdminJwt(payload: { sub: string; email: string }): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+}
+
 export async function getAdminUserIdFromRequest(request: Request): Promise<string | null> {
   const h = request.headers.get("Authorization");
   if (!h?.startsWith("Bearer ")) return null;
   const token = h.slice(7);
   if (!token) return null;
 
-  const pub = getPublicSupabaseConfig();
-  if (!pub.isConfigured) return null;
+  let decoded: AdminJwtPayload;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET) as AdminJwtPayload;
+  } catch {
+    return null;
+  }
 
-  const client = createClient(pub.url, pub.key, {
-    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-  // Em rotas server-side sem sessão persistida, precisamos passar o JWT explicitamente.
-  const { data: userData, error: userErr } = await client.auth.getUser(token);
-  if (userErr || !userData.user) return null;
-  const uid = userData.user.id;
-  const userEmail = (userData.user.email || "").trim().toLowerCase();
-  const expectedAdminEmail = getSetupAdminCredentials().email.trim().toLowerCase();
+  if (!decoded.sub || !decoded.email) return null;
 
-  if (!userData.user.email_confirmed_at) return null;
-  if (!userEmail || userEmail !== expectedAdminEmail) return null;
+  const expectedEmail = getSetupAdminCredentials().email.trim().toLowerCase();
+  if (decoded.email.trim().toLowerCase() !== expectedEmail) return null;
 
-  const { data: role, error: roleErr } = await supabaseAdmin
-    .from("user_roles")
-    .select("user_id")
-    .eq("user_id", uid)
-    .eq("role", "admin")
-    .maybeSingle();
-  if (roleErr || !role) return null;
-  return uid;
+  const admin = await db
+    .select({ id: schema.adminUsers.id, email_confirmed_at: schema.adminUsers.email_confirmed_at })
+    .from(schema.adminUsers)
+    .where(eq(schema.adminUsers.id, decoded.sub))
+    .get();
+
+  if (!admin || !admin.email_confirmed_at) return null;
+  return admin.id;
 }

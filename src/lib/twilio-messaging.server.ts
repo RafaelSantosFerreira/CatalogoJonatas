@@ -1,14 +1,14 @@
-import { supabaseAdmin } from "@/integrations/supabase/server";
+import { db, schema } from "@/db";
 import { logAppError, logAppInfo } from "@/lib/app-logger";
 
 export interface TwilioSettings {
-  twilio_account_sid?: string;
-  twilio_auth_token?: string;
-  twilio_whatsapp_from?: string;
-  twilio_content_sid?: string;
-  whatsapp_notifications_enabled?: boolean;
-  whatsapp_country_code?: string;
-  whatsapp_number?: string;
+  twilio_account_sid?: string | null;
+  twilio_auth_token?: string | null;
+  twilio_whatsapp_from?: string | null;
+  twilio_content_sid?: string | null;
+  whatsapp_notifications_enabled?: boolean | null;
+  whatsapp_country_code?: string | null;
+  whatsapp_number?: string | null;
 }
 
 interface TwilioErrorResponse {
@@ -24,14 +24,16 @@ interface TwilioSuccessResponse {
 }
 
 export async function fetchCompanyTwilioSettings(): Promise<TwilioSettings | null> {
-  const { data, error } = await supabaseAdmin
-    .from("company_settings")
-    .select(
-      "twilio_account_sid, twilio_auth_token, twilio_whatsapp_from, twilio_content_sid, whatsapp_notifications_enabled, whatsapp_country_code, whatsapp_number"
-    )
-    .maybeSingle();
-  if (error || !data) return null;
-  return data as TwilioSettings;
+  const row = await db.select({
+    twilio_account_sid: schema.companySettings.twilio_account_sid,
+    twilio_auth_token: schema.companySettings.twilio_auth_token,
+    twilio_whatsapp_from: schema.companySettings.twilio_whatsapp_from,
+    twilio_content_sid: schema.companySettings.twilio_content_sid,
+    whatsapp_notifications_enabled: schema.companySettings.whatsapp_notifications_enabled,
+    whatsapp_country_code: schema.companySettings.whatsapp_country_code,
+    whatsapp_number: schema.companySettings.whatsapp_number,
+  }).from(schema.companySettings).get();
+  return row ?? null;
 }
 
 export interface TwilioSendResult {
@@ -109,29 +111,17 @@ export async function sendTwilioContentMessage(params: {
         responseBody,
       });
 
-      return {
-        success: false,
-        error: errorMessage,
-        errorCode,
-        httpStatus,
-        responseBody,
-      };
+      return { success: false, error: errorMessage, errorCode, httpStatus, responseBody };
     }
 
     const successBody = responseBody as TwilioSuccessResponse;
-
     logAppInfo("twilio-messaging.response.ok", "Twilio aceitou a mensagem", {
       httpStatus,
       messageSid: successBody?.sid,
       status: successBody?.status,
     });
 
-    return {
-      success: true,
-      messageSid: successBody?.sid,
-      httpStatus,
-      responseBody,
-    };
+    return { success: true, messageSid: successBody?.sid, httpStatus, responseBody };
   } catch (fetchErr) {
     const errorMessage = fetchErr instanceof Error ? fetchErr.message : "Erro de rede desconhecido";
     logAppError("twilio-messaging.sendNetwork", fetchErr);
@@ -156,25 +146,23 @@ export async function saveWhatsAppLogToDb(params: {
 }): Promise<void> {
   const { orderId, to, from, contentSid, contentVariables, result, requestPayload } = params;
 
-  const logEntry = {
-    order_id: orderId ?? null,
-    to_number: to,
-    from_number: from,
-    content_sid: contentSid,
-    content_variables: contentVariables,
-    status: result.success ? "success" : "error",
-    twilio_message_sid: result.messageSid ?? null,
-    http_status_code: result.httpStatus ?? null,
-    error_code: result.errorCode ?? null,
-    error_message: result.error ?? null,
-    response_body: result.responseBody ?? null,
-    request_payload: requestPayload,
-    sent_at: new Date().toISOString(),
-  };
-
-  const { error: logError } = await supabaseAdmin.from("whatsapp_logs").insert(logEntry);
-
-  if (logError) {
+  try {
+    await db.insert(schema.whatsappLogs).values({
+      order_id: orderId ?? null,
+      to_number: to,
+      from_number: from,
+      content_sid: contentSid,
+      content_variables: contentVariables,
+      status: result.success ? "success" : "error",
+      twilio_message_sid: result.messageSid ?? null,
+      http_status_code: result.httpStatus ?? null,
+      error_code: result.errorCode ?? null,
+      error_message: result.error ?? null,
+      response_body: result.responseBody ?? null,
+      request_payload: requestPayload,
+      sent_at: new Date().toISOString(),
+    });
+  } catch (logError) {
     logAppError("twilio-messaging.saveLog", logError);
   }
 }

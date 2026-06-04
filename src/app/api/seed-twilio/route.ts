@@ -1,12 +1,9 @@
-import { supabaseAdmin } from "@/integrations/supabase/server";
+import { db, schema } from "@/db";
 import { logAppError } from "@/lib/app-logger";
 import { getTwilioFromEnv } from "@/lib/env-twilio";
 import { getAdminUserIdFromRequest } from "@/lib/verify-admin-request";
 import { checkRateLimit } from "@/lib/rate-limit";
 
-/**
- * Grava Twilio em company_settings a partir do .env (sem segredos no código-fonte).
- */
 export async function POST(request: Request) {
   try {
     const rl = checkRateLimit({
@@ -33,34 +30,26 @@ export async function POST(request: Request) {
     const twilio = getTwilioFromEnv();
     if (!twilio.ok) {
       return Response.json(
-        {
-          success: false,
-          error: `Defina no .env.local: ${twilio.missing.join(", ")}`,
-        },
+        { success: false, error: `Defina no .env.local: ${twilio.missing.join(", ")}` },
         { status: 400 }
       );
     }
 
     const payload = { ...twilio.data, updated_at: new Date().toISOString() };
+    const existing = await db.select({ id: schema.companySettings.id }).from(schema.companySettings).get();
 
-    const { data: existing } = await supabaseAdmin.from("company_settings").select("id").maybeSingle();
-
-    let result;
-    if (existing?.id) {
-      result = await supabaseAdmin.from("company_settings").update(payload).eq("id", existing.id).select("id").maybeSingle();
-    } else {
-      result = await supabaseAdmin.from("company_settings").insert(payload).select("id").maybeSingle();
+    try {
+      if (existing?.id) {
+        await db.update(schema.companySettings).set(payload);
+      } else {
+        await db.insert(schema.companySettings).values(payload);
+      }
+    } catch (e) {
+      logAppError("api/seed-twilio.db", e);
+      return Response.json({ success: false, error: "Erro ao salvar no banco." }, { status: 500 });
     }
 
-    if (result.error) {
-      logAppError("api/seed-twilio.supabase", result.error);
-      return Response.json({ success: false, error: result.error.message }, { status: 500 });
-    }
-
-    return Response.json({
-      success: true,
-      message: "Configurações Twilio salvas a partir do .env.",
-    });
+    return Response.json({ success: true, message: "Configurações Twilio salvas a partir do .env." });
   } catch (err) {
     logAppError("api/seed-twilio.catch", err);
     return Response.json({ success: false, error: "Erro interno no servidor." }, { status: 500 });

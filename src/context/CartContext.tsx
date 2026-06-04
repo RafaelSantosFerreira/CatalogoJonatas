@@ -1,8 +1,6 @@
-
 "use client";
 
 import { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { useCustomer } from "./CustomerContext";
 import type { CartItem, SelectedAttributes } from "@/types/cart";
 import type { Product } from "@/types/product";
@@ -28,23 +26,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   itemsRef.current = items;
 
   const fetchCart = useCallback(async (customerId: string) => {
-    const { data } = await supabase
-      .from("cart_items")
-      .select("*")
-      .eq("customer_id", customerId);
-    if (!data) return;
-
-    const enriched = await Promise.all(
-      data.map(async (item) => {
-        const { data: product } = await supabase
-          .from("products")
-          .select("*")
-          .eq("id", item.product_id)
-          .maybeSingle();
-        return { ...item, product: product ?? undefined } as CartItem;
-      })
-    );
-    setItems(enriched);
+    try {
+      const res = await fetch(`/api/cart?customer_id=${customerId}`);
+      const json = await res.json();
+      if (json.data) setItems(json.data as CartItem[]);
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -56,59 +42,34 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     async (product: Product, attrs?: SelectedAttributes) => {
       if (!customer?.id) return;
       setLoading(true);
-
-      const colorId = attrs?.color_id ?? null;
-      const sizeId = attrs?.size_id ?? null;
-      const volumeId = attrs?.volume_id ?? null;
-
-      const existing = itemsRef.current.find(
-        (i) =>
-          i.product_id === product.id &&
-          (i.selected_color_id ?? null) === colorId &&
-          (i.selected_size_id ?? null) === sizeId &&
-          (i.selected_volume_id ?? null) === volumeId
-      );
-
-      if (existing) {
-        await supabase
-          .from("cart_items")
-          .update({
-            quantity: existing.quantity + 1,
-            updated_at: new Date().toISOString(),
-            product_internal_code: product.internal_code?.trim() || null,
-          })
-          .eq("id", existing.id);
-        setItems((prev) =>
-          prev.map((i) =>
-            i.id === existing.id
-              ? {
-                  ...i,
-                  quantity: i.quantity + 1,
-                  product_internal_code: product.internal_code?.trim() || null,
-                }
-              : i
-          )
-        );
-      } else {
-        const { data } = await supabase
-          .from("cart_items")
-          .insert({
+      try {
+        const res = await fetch("/api/cart", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
             customer_id: customer.id,
             product_id: product.id,
             quantity: 1,
-            unit_price: product.price ?? 0,
-            selected_color_id: colorId,
+            unit_price: typeof product.price === "string" ? parseFloat(product.price) : (product.price ?? 0),
+            selected_color_id: attrs?.color_id ?? null,
             selected_color_name: attrs?.color_name ?? null,
-            selected_size_id: sizeId,
+            selected_size_id: attrs?.size_id ?? null,
             selected_size_label: attrs?.size_label ?? null,
-            selected_volume_id: volumeId,
+            selected_volume_id: attrs?.volume_id ?? null,
             selected_volume_label: attrs?.volume_label ?? null,
             product_internal_code: product.internal_code?.trim() || null,
-          })
-          .select("*")
-          .maybeSingle();
-        if (data) setItems((prev) => [...prev, { ...data, product } as CartItem]);
-      }
+          }),
+        });
+        const json = await res.json();
+        if (json.data) {
+          const existing = itemsRef.current.find((i) => i.id === json.data.id);
+          if (existing) {
+            setItems((prev) => prev.map((i) => (i.id === json.data.id ? { ...i, quantity: json.data.quantity } : i)));
+          } else {
+            setItems((prev) => [...prev, { ...json.data, product } as CartItem]);
+          }
+        }
+      } catch {}
       setLoading(false);
     },
     [customer?.id]
@@ -117,7 +78,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const removeItem = useCallback(
     async (itemId: string) => {
       if (!customer?.id) return;
-      await supabase.from("cart_items").delete().eq("id", itemId);
+      await fetch("/api/cart", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: itemId }),
+      });
       setItems((prev) => prev.filter((i) => i.id !== itemId));
     },
     [customer?.id]
@@ -130,20 +95,23 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         await removeItem(itemId);
         return;
       }
-      await supabase
-        .from("cart_items")
-        .update({ quantity, updated_at: new Date().toISOString() })
-        .eq("id", itemId);
-      setItems((prev) =>
-        prev.map((i) => (i.id === itemId ? { ...i, quantity } : i))
-      );
+      await fetch("/api/cart", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: itemId, quantity }),
+      });
+      setItems((prev) => prev.map((i) => (i.id === itemId ? { ...i, quantity } : i)));
     },
     [customer?.id, removeItem]
   );
 
   const clearCart = useCallback(async () => {
     if (!customer?.id) return;
-    await supabase.from("cart_items").delete().eq("customer_id", customer.id);
+    await fetch("/api/cart", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ customer_id: customer.id }),
+    });
     setItems([]);
   }, [customer?.id]);
 

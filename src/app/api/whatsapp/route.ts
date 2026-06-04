@@ -1,4 +1,5 @@
-import { supabaseAdmin } from "@/integrations/supabase/server";
+import { db, schema } from "@/db";
+import { eq } from "drizzle-orm";
 import { createTraceId, logAppError, logAppInfo, logAppWarn } from "@/lib/app-logger";
 import {
   fetchCompanyTwilioSettings,
@@ -37,29 +38,13 @@ export async function POST(request: Request) {
     const parsed = whatsappPayloadSchema.safeParse(rawBody);
     if (!parsed.success) {
       return Response.json(
-        {
-          success: false,
-          error: "Payload inválido para envio WhatsApp.",
-          traceId,
-        },
+        { success: false, error: "Payload inválido para envio WhatsApp.", traceId },
         { status: 400 }
       );
     }
     const { to, contentVariables, orderId, useCompanyWhatsappTarget } = parsed.data;
 
-    if (!contentVariables) {
-      return Response.json(
-        {
-          success: false,
-          error: "Campo 'contentVariables' é obrigatório.",
-          traceId,
-        },
-        { status: 400 }
-      );
-    }
-
     const settings = await fetchCompanyTwilioSettings();
-
     if (!settings) {
       return Response.json(
         { success: false, error: "Configurações da empresa não encontradas.", traceId },
@@ -74,50 +59,31 @@ export async function POST(request: Request) {
       );
     }
 
-    const {
-      twilio_account_sid,
-      twilio_auth_token,
-      twilio_whatsapp_from,
-      twilio_content_sid,
-    } = settings;
+    const { twilio_account_sid, twilio_auth_token, twilio_whatsapp_from, twilio_content_sid } = settings;
 
     if (!twilio_account_sid || !twilio_auth_token || !twilio_whatsapp_from) {
       return Response.json(
-        {
-          success: false,
-          error: "Credenciais Twilio não configuradas. Acesse as configurações da empresa.",
-          traceId,
-        },
+        { success: false, error: "Credenciais Twilio não configuradas.", traceId },
         { status: 400 }
       );
     }
 
     if (!twilio_content_sid) {
       return Response.json(
-        {
-          success: false,
-          error: "Content SID do template Twilio não configurado. Acesse as configurações da empresa.",
-          traceId,
-        },
+        { success: false, error: "Content SID do template Twilio não configurado.", traceId },
         { status: 400 }
       );
     }
 
     let destination = to;
     if (useCompanyWhatsappTarget) {
-      const companyCountryCode = (settings as { whatsapp_country_code?: string }).whatsapp_country_code ?? "+55";
-      const companyNumber = (settings as { whatsapp_number?: string }).whatsapp_number ?? "";
-      const ccDigits = companyCountryCode.replace(/\D/g, "");
-      let numberDigits = companyNumber.replace(/\D/g, "");
+      const ccDigits = (settings.whatsapp_country_code ?? "+55").replace(/\D/g, "");
+      let numberDigits = (settings.whatsapp_number ?? "").replace(/\D/g, "");
       numberDigits = numberDigits.replace(/^0+/, "");
       const digits = `${ccDigits}${numberDigits}`;
       if (!digits) {
         return Response.json(
-          {
-            success: false,
-            error: "WhatsApp da empresa não configurado em Configurações.",
-            traceId,
-          },
+          { success: false, error: "WhatsApp da empresa não configurado.", traceId },
           { status: 400 }
         );
       }
@@ -126,11 +92,7 @@ export async function POST(request: Request) {
 
     if (!destination) {
       return Response.json(
-        {
-          success: false,
-          error: "Campo 'to' é obrigatório (ou useCompanyWhatsappTarget=true).",
-          traceId,
-        },
+        { success: false, error: "Campo 'to' é obrigatório.", traceId },
         { status: 400 }
       );
     }
@@ -139,7 +101,6 @@ export async function POST(request: Request) {
     logAppInfo("api/whatsapp.target", "Destino normalizado", {
       traceId,
       toMasked: toFormatted.replace(/(\+\d{2})\d+(\d{2})/, "$1****$2"),
-      hasOrderId: Boolean(orderId),
     });
 
     const requestPayload = {
@@ -193,13 +154,10 @@ export async function POST(request: Request) {
     }
 
     if (orderId) {
-      await supabaseAdmin
-        .from("orders")
-        .update({
-          whatsapp_sent: true,
-          whatsapp_sent_at: new Date().toISOString(),
-        })
-        .eq("id", orderId);
+      await db
+        .update(schema.orders)
+        .set({ whatsapp_sent: true, whatsapp_sent_at: new Date().toISOString() })
+        .where(eq(schema.orders.id, orderId));
     }
 
     logAppInfo("api/whatsapp.twilio.ok", "Twilio aceitou mensagem", {
@@ -209,9 +167,6 @@ export async function POST(request: Request) {
     return Response.json({ success: true, messageSid: result.messageSid, traceId });
   } catch (err) {
     logAppError("api/whatsapp.POST.catch", err, { traceId, flowSource });
-    return Response.json(
-      { success: false, error: "Erro interno no servidor.", traceId },
-      { status: 500 }
-    );
+    return Response.json({ success: false, error: "Erro interno no servidor.", traceId }, { status: 500 });
   }
 }

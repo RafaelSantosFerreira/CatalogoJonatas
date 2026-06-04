@@ -5,7 +5,8 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence } from "framer-motion";
 import { Search, Plus, LogOut, Wrench, SlidersHorizontal } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { readStoredAdminTokens, clearAdminBearerTokens } from "@/lib/admin-bearer-storage";
+import { setCachedAdminAccessToken } from "@/lib/admin-session-bridge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -27,18 +28,18 @@ export default function AdminPanel() {
   const [selected, setSelected] = useState<Product | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        router.replace("/admin/login");
-      } else {
-        setAuthChecked(true);
-        fetchProducts("admin");
-      }
-    });
+    const tokens = readStoredAdminTokens();
+    if (!tokens?.access) {
+      router.replace("/admin/login");
+    } else {
+      setAuthChecked(true);
+      fetchProducts("admin");
+    }
   }, [router, fetchProducts]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    clearAdminBearerTokens();
+    setCachedAdminAccessToken(null);
     router.replace("/admin/login");
   };
 

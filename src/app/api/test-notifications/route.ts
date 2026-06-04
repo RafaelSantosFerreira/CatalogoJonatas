@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "@/integrations/supabase/server";
+import { db, schema } from "@/db";
 import { createTraceId, logAppError, logAppInfo } from "@/lib/app-logger";
 import {
   fetchCompanyTwilioSettings,
@@ -16,7 +16,6 @@ function trimStr(v: string | null | undefined): string {
   return (v ?? "").trim();
 }
 
-/** Twilio para teste: usa `company_settings` e completa lacunas com o .env (sem gravar no banco). */
 function mergeTwilioForTest(db: TwilioSettings | null, env: ReturnType<typeof getTwilioFromEnv>) {
   const e = env.ok ? env.data : null;
   const d = db ?? {};
@@ -33,7 +32,7 @@ const notificationSchema = z.object({
   channel: z.enum(["whatsapp", "email"]),
 });
 
-function buildWhatsAppTo(whatsapp_country_code: string, whatsapp_number: string | null): string | null {
+function buildWhatsAppTo(whatsapp_country_code: string | null, whatsapp_number: string | null): string | null {
   const cc = (whatsapp_country_code || "+55").replace(/\D/g, "");
   let n = (whatsapp_number || "").replace(/\D/g, "");
   n = n.replace(/^0+/, "");
@@ -41,9 +40,6 @@ function buildWhatsAppTo(whatsapp_country_code: string, whatsapp_number: string 
   return `whatsapp:+${cc}${n}`;
 }
 
-/**
- * Apenas admin autenticado. Testa envio (WhatsApp Twilio ou e-mail SMTP) a partir de company_settings.
- */
 export async function POST(request: Request) {
   const traceId = request.headers.get("x-trace-id") || createTraceId("apitest");
   const rl = checkRateLimit({
@@ -70,30 +66,13 @@ export async function POST(request: Request) {
     const rawBody = await request.json();
     const parsed = notificationSchema.safeParse(rawBody);
     if (!parsed.success) {
-      return Response.json(
-        { success: false, error: "Payload inválido.", traceId },
-        { status: 400 }
-      );
+      return Response.json({ success: false, error: "Payload inválido.", traceId }, { status: 400 });
     }
     const channel: Channel = parsed.data.channel;
-    logAppInfo("api/test-notifications.start", "Início do teste de notificação", {
-      traceId,
-      adminId,
-      channel,
-    });
-    if (channel !== "whatsapp" && channel !== "email") {
-      return Response.json(
-        { success: false, error: "Informe { \"channel\": \"whatsapp\" } ou \"email\".", traceId },
-        { status: 400 }
-      );
-    }
+    logAppInfo("api/test-notifications.start", "Início do teste de notificação", { traceId, adminId, channel });
 
-    const { data: company, error: coErr } = await supabaseAdmin
-      .from("company_settings")
-      .select("*")
-      .maybeSingle();
-
-    if (coErr || !company) {
+    const company = await db.select().from(schema.companySettings).get();
+    if (!company) {
       return Response.json(
         { success: false, error: "Não foi possível carregar as configurações da empresa.", traceId },
         { status: 404 }
@@ -111,41 +90,28 @@ export async function POST(request: Request) {
       if (!s.twilio_content_sid) missing.push("Content SID");
       if (missing.length > 0) {
         const envHint = !envTwilio.ok
-          ? ` No servidor (arquivo carregado pelo Next), faltam no .env: ${envTwilio.missing.join(", ")}. Reinicie \`pnpm dev\` após editar .env.local, ou preencha no painel e salve.`
+          ? ` No servidor faltam no .env: ${envTwilio.missing.join(", ")}. Reinicie após editar .env.local.`
           : " Reinicie o servidor de desenvolvimento se acabou de editar o .env.";
         return Response.json(
           {
             success: false,
-            error: `Credenciais Twilio incompletas após juntar banco + .env: ${missing.join(", ")}.${envHint}`,
+            error: `Credenciais Twilio incompletas: ${missing.join(", ")}.${envHint}`,
             traceId,
           },
           { status: 400 }
         );
       }
 
-      const to = buildWhatsAppTo(
-        company.whatsapp_country_code,
-        company.whatsapp_number
-      );
-      logAppInfo("api/test-notifications.whatsapp.params", "Parâmetros de teste WhatsApp", {
-        traceId,
-        companyName: company.company_name,
-        whatsappCountryCode: company.whatsapp_country_code,
-        whatsappNumber: company.whatsapp_number,
-      });
+      const to = buildWhatsAppTo(company.whatsapp_country_code, company.whatsapp_number);
       if (!to) {
         return Response.json(
-          {
-            success: false,
-            error: "Defina o número do WhatsApp da empresa (código do país e número) nas configurações.",
-            traceId,
-          },
+          { success: false, error: "Defina o WhatsApp da empresa nas configurações.", traceId },
           { status: 400 }
         );
       }
 
       const contentVariables: Record<string, string> = {
-        "1": (company.company_name as string) || "Teste",
+        "1": company.company_name || "Teste",
         "2": `#TESTE | notificação de teste | painel admin · ${new Date().toLocaleString("pt-BR")}`,
       };
 
@@ -169,13 +135,7 @@ export async function POST(request: Request) {
 
       if (!result.success) {
         return Response.json(
-          {
-            success: false,
-            error: result.error ?? "Falha ao enviar no Twilio.",
-            errorCode: result.errorCode,
-            httpStatus: result.httpStatus,
-            traceId,
-          },
+          { success: false, error: result.error ?? "Falha ao enviar no Twilio.", errorCode: result.errorCode, httpStatus: result.httpStatus, traceId },
           { status: 502 }
         );
       }
@@ -196,7 +156,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const toEmail = (company.order_email as string | null)?.trim();
+    const toEmail = company.order_email?.trim();
     if (!toEmail) {
       return Response.json(
         { success: false, error: "Preencha o e-mail para receber pedidos.", traceId },
@@ -204,18 +164,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const host = (company.smtp_host as string | null)?.trim();
-    const user = (company.smtp_user as string | null)?.trim();
-    const pass = (company.smtp_password as string | null) ?? "";
-    const fromE = (company.smtp_from_email as string | null)?.trim();
+    const host = company.smtp_host?.trim();
+    const user = company.smtp_user?.trim();
+    const pass = company.smtp_password ?? "";
+    const fromE = company.smtp_from_email?.trim();
     const port = Number(company.smtp_port) || 587;
     if (!host || !user || !fromE) {
       return Response.json(
-        {
-          success: false,
-          error: "Preencha host, usuário SMTP e e-mail do remetente (salve antes de testar).",
-          traceId,
-        },
+        { success: false, error: "Preencha host, usuário SMTP e e-mail do remetente.", traceId },
         { status: 400 }
       );
     }
@@ -227,10 +183,7 @@ export async function POST(request: Request) {
         smtp_user: user,
         smtp_password: pass,
         smtp_secure: Boolean(company.smtp_secure),
-        smtp_from_name:
-          (company.smtp_from_name as string) ||
-          (company.company_name as string) ||
-          "Aplicativo",
+        smtp_from_name: company.smtp_from_name || company.company_name || "Aplicativo",
         smtp_from_email: fromE,
       },
       toEmail
@@ -241,17 +194,9 @@ export async function POST(request: Request) {
       return Response.json({ success: false, error: r.error, traceId }, { status: 502 });
     }
 
-    return Response.json({
-      success: true,
-      message: "E-mail de teste enviado.",
-      messageId: r.messageId,
-      traceId,
-    });
+    return Response.json({ success: true, message: "E-mail de teste enviado.", messageId: r.messageId, traceId });
   } catch (e) {
     logAppError("api/test-notifications", e, { traceId });
-    return Response.json(
-      { success: false, error: "Erro interno no servidor.", traceId },
-      { status: 500 }
-    );
+    return Response.json({ success: false, error: "Erro interno no servidor.", traceId }, { status: 500 });
   }
 }

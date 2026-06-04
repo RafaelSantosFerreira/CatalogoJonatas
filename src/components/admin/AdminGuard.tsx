@@ -25,15 +25,6 @@ export function AdminGuard({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (!user?.email_confirmed_at) {
-        await signOut();
-        if (!cancelled) {
-          setCheckingAccess(false);
-          router.replace("/admin/login");
-        }
-        return;
-      }
-
       try {
         const res = await withTimeout(
           fetch("/api/admin-access", {

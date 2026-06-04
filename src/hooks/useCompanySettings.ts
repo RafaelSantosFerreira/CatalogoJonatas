@@ -1,10 +1,14 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { readStoredAdminTokens } from "@/lib/admin-bearer-storage";
 import { withTimeout } from "@/lib/with-timeout";
 import type { CompanySettings, CompanySettingsFormData } from "@/types/company-settings";
+
+async function getAuthHeader(): Promise<HeadersInit> {
+  const token = readStoredAdminTokens()?.access;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export function useCompanySettings() {
   const [settings, setSettings] = useState<CompanySettings | null>(null);
@@ -14,11 +18,10 @@ export function useCompanySettings() {
   const fetchSettings = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await withTimeout(
-        supabase.from("company_settings").select("*").maybeSingle().then((r) => r),
-        20_000
-      );
-      if (res?.data) setSettings(res.data as CompanySettings);
+      const res = await withTimeout(fetch("/api/company-settings"), 20_000);
+      if (!res) return;
+      const json = await res.json();
+      if (json?.data) setSettings(json.data as CompanySettings);
     } catch {
       /* rede */
     } finally {
@@ -33,27 +36,24 @@ export function useCompanySettings() {
   const saveSettings = useCallback(
     async (form: CompanySettingsFormData): Promise<{ error: string | null }> => {
       setSaving(true);
-      let result;
-      if (settings?.id) {
-        result = await supabase
-          .from("company_settings")
-          .update({ ...form, updated_at: new Date().toISOString() })
-          .eq("id", settings.id)
-          .select("*")
-          .maybeSingle();
-      } else {
-        result = await supabase
-          .from("company_settings")
-          .insert({ ...form })
-          .select("*")
-          .maybeSingle();
+      try {
+        const headers = await getAuthHeader();
+        const res = await fetch("/api/company-settings", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json", ...headers },
+          body: JSON.stringify(form),
+        });
+        const json = await res.json();
+        setSaving(false);
+        if (!res.ok) return { error: json.error ?? "Erro ao salvar." };
+        if (json.data) setSettings(json.data as CompanySettings);
+        return { error: null };
+      } catch (e) {
+        setSaving(false);
+        return { error: e instanceof Error ? e.message : "Erro inesperado." };
       }
-      setSaving(false);
-      if (result.error) return { error: result.error.message };
-      if (result.data) setSettings(result.data as CompanySettings);
-      return { error: null };
     },
-    [settings?.id]
+    []
   );
 
   return { settings, loading, saving, saveSettings, refetch: fetchSettings };

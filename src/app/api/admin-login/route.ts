@@ -1,6 +1,10 @@
-import { getPublicSupabaseConfig } from "@/lib/supabase-env";
+import { db, schema } from "@/db";
+import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
+import { signAdminJwt } from "@/lib/verify-admin-request";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { logAppError } from "@/lib/app-logger";
+import { getSetupAdminCredentials } from "@/lib/env-setup-admin";
 
 type LoginBody = {
   email?: string;
@@ -21,14 +25,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const { url, key, isConfigured } = getPublicSupabaseConfig();
-  if (!isConfigured) {
-    return Response.json(
-      { error: "Configuração pública do Supabase ausente." },
-      { status: 500 }
-    );
-  }
-
   let body: LoginBody = {};
   try {
     body = (await request.json()) as LoginBody;
@@ -42,53 +38,39 @@ export async function POST(request: Request) {
     return Response.json({ error: "E-mail e senha são obrigatórios." }, { status: 400 });
   }
 
-  const endpoint = `${url.replace(/\/$/, "")}/auth/v1/token?grant_type=password`;
-  let authRes: Response;
+  const expectedEmail = getSetupAdminCredentials().email.trim().toLowerCase();
+  if (email.toLowerCase() !== expectedEmail) {
+    return Response.json({ error: "Credenciais inválidas." }, { status: 401 });
+  }
+
   try {
-    authRes = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        apikey: key,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-      cache: "no-store",
+    const admin = await db
+      .select()
+      .from(schema.adminUsers)
+      .where(eq(schema.adminUsers.email, email))
+      .get();
+
+    if (!admin) {
+      return Response.json({ error: "Credenciais inválidas." }, { status: 401 });
+    }
+
+    const valid = await bcrypt.compare(password, admin.password_hash);
+    if (!valid) {
+      return Response.json({ error: "Credenciais inválidas." }, { status: 401 });
+    }
+
+    const access_token = signAdminJwt({ sub: admin.id, email: admin.email });
+    const expires_in = 7 * 24 * 3600;
+
+    return Response.json({
+      access_token,
+      refresh_token: access_token,
+      expires_in,
+      token_type: "bearer",
+      user: { id: admin.id, email: admin.email },
     });
   } catch (e) {
-    logAppError("api/admin-login.fetch", e);
-    const msg = e instanceof Error ? e.message : String(e);
-    const dnsOrNet = /ENOTFOUND|getaddrinfo|ECONNREFUSED|ETIMEDOUT|fetch failed/i.test(msg);
-    return Response.json(
-      {
-        error: dnsOrNet
-          ? "Não foi possível conectar ao Supabase (URL/DNS/rede ou projeto indisponível). Confira SUPABASE_API_URL no .env.local."
-          : "Falha de rede ao contatar o Supabase.",
-        code: "SUPABASE_UNREACHABLE",
-      },
-      { status: 503 }
-    );
+    logAppError("api/admin-login", e);
+    return Response.json({ error: "Erro interno no servidor." }, { status: 500 });
   }
-
-  const text = await authRes.text();
-  let json: unknown = {};
-  try {
-    json = text ? JSON.parse(text) : {};
-  } catch {
-    json = { error: text.slice(0, 500) };
-  }
-
-  if (!authRes.ok) {
-    return Response.json(
-      {
-        error:
-          (json as { msg?: string; error_description?: string; error?: string }).msg ||
-          (json as { error_description?: string }).error_description ||
-          (json as { error?: string }).error ||
-          "Falha no login.",
-      },
-      { status: authRes.status }
-    );
-  }
-
-  return Response.json(json);
 }

@@ -36,7 +36,6 @@ import {
   sendTwilioWhatsApp,
   hasTwilioConfigured,
 } from "@/lib/order-notification";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { Customer } from "@/types/customer";
 import type { CartItem } from "@/types/cart";
@@ -71,46 +70,40 @@ export function CartDrawer() {
 
   const saveOrder = useCallback(
     async (cust: Customer, cartItems: CartItem[], orderTotal: number) => {
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           customer_id: cust.id,
-          status: "pending",
           total_amount: orderTotal,
           customer_name: cust.full_name,
           customer_phone_country_code: cust.phone_country_code,
           customer_phone_number: cust.phone_number,
           customer_address: null,
-        })
-        .select("*")
-        .maybeSingle();
-
-      if (orderError || !order) {
-        console.error("Erro ao salvar pedido:", orderError);
+          items: cartItems.map((item) => ({
+            product_id: item.product_id,
+            product_name: item.product?.name ?? "Produto",
+            product_sku: item.product?.sku ?? null,
+            product_internal_code: item.product_internal_code ?? item.product?.internal_code ?? null,
+            product_image_url: item.product?.image_url ?? null,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.unit_price * item.quantity,
+            selected_color_id: item.selected_color_id ?? null,
+            selected_color_name: item.selected_color_name ?? null,
+            selected_size_id: item.selected_size_id ?? null,
+            selected_size_label: item.selected_size_label ?? null,
+            selected_volume_id: item.selected_volume_id ?? null,
+            selected_volume_label: item.selected_volume_label ?? null,
+          })),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        console.error("Erro ao salvar pedido:", json.error);
         return null;
       }
-
-      const orderItems = cartItems.map((item) => ({
-        order_id: order.id,
-        product_id: item.product_id,
-        product_name: item.product?.name ?? "Produto",
-        product_sku: item.product?.sku ?? null,
-        product_internal_code: item.product_internal_code ?? item.product?.internal_code ?? null,
-        product_image_url: item.product?.image_url ?? null,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.unit_price * item.quantity,
-        selected_color_id: item.selected_color_id ?? null,
-        selected_color_name: item.selected_color_name ?? null,
-        selected_size_id: item.selected_size_id ?? null,
-        selected_size_label: item.selected_size_label ?? null,
-        selected_volume_id: item.selected_volume_id ?? null,
-        selected_volume_label: item.selected_volume_label ?? null,
-      }));
-
-      await supabase.from("order_items").insert(orderItems);
-
-      return order.id as string;
+      return json.id as string;
     },
     []
   );

@@ -1,61 +1,55 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { db, schema } from "@/db";
+import { eq, inArray, desc } from "drizzle-orm";
 import type { Product, ProductColor, ProductSize, ProductVolume } from "@/types/product";
 
-type DetailRow = { id: string; product_id: string };
-
-function groupByProductId<T extends DetailRow>(rows: T[] | null | undefined): Record<string, T[]> {
+function groupByProductId<T extends { product_id: string }>(rows: T[]): Record<string, T[]> {
   const grouped: Record<string, T[]> = {};
-  for (const row of rows ?? []) {
+  for (const row of rows) {
     if (!grouped[row.product_id]) grouped[row.product_id] = [];
     grouped[row.product_id].push(row);
   }
   return grouped;
 }
 
-/** Lista produtos com cores, tamanhos e volumes (mesma forma que o catálogo/admin esperam). */
-export async function loadProductsEnriched(db: SupabaseClient): Promise<Product[]> {
-  const { data, error } = await db.from("products").select("*").order("created_at", { ascending: false });
-  if (error) throw error;
-  if (!data?.length) return [];
+export async function loadProductsEnriched(): Promise<Product[]> {
+  const data = await db.select().from(schema.products).orderBy(desc(schema.products.created_at));
+  if (!data.length) return [];
 
   const productIds = data.map((p) => p.id);
-  const [colorsRes, sizesRes, volumesRes] = await Promise.all([
-    db.from("product_colors").select("*").in("product_id", productIds),
-    db.from("product_sizes").select("*").in("product_id", productIds),
-    db.from("product_volumes").select("*").in("product_id", productIds),
+  const [colors, sizes, volumes] = await Promise.all([
+    db.select().from(schema.productColors).where(inArray(schema.productColors.product_id, productIds)),
+    db.select().from(schema.productSizes).where(inArray(schema.productSizes.product_id, productIds)),
+    db.select().from(schema.productVolumes).where(inArray(schema.productVolumes.product_id, productIds)),
   ]);
-  if (colorsRes.error) throw colorsRes.error;
-  if (sizesRes.error) throw sizesRes.error;
-  if (volumesRes.error) throw volumesRes.error;
 
-  const colorsByProduct = groupByProductId(colorsRes.data as ProductColor[]);
-  const sizesByProduct = groupByProductId(sizesRes.data as ProductSize[]);
-  const volumesByProduct = groupByProductId(volumesRes.data as ProductVolume[]);
+  const colorsByProduct = groupByProductId(colors);
+  const sizesByProduct = groupByProductId(sizes);
+  const volumesByProduct = groupByProductId(volumes);
 
   return data.map((p) => ({
     ...p,
-    colors: colorsByProduct[p.id] ?? [],
-    sizes: sizesByProduct[p.id] ?? [],
-    volumes: volumesByProduct[p.id] ?? [],
-  })) as Product[];
+    price: p.price ?? undefined,
+    colors: (colorsByProduct[p.id] ?? []) as ProductColor[],
+    sizes: (sizesByProduct[p.id] ?? []) as ProductSize[],
+    volumes: (volumesByProduct[p.id] ?? []) as ProductVolume[],
+  })) as unknown as Product[];
 }
 
-export async function loadProductById(db: SupabaseClient, id: string): Promise<Product | null> {
-  const { data: row, error } = await db.from("products").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
+export async function loadProductById(id: string): Promise<Product | null> {
+  const row = await db.select().from(schema.products).where(eq(schema.products.id, id)).get();
   if (!row) return null;
-  const [colorsRes, sizesRes, volumesRes] = await Promise.all([
-    db.from("product_colors").select("*").eq("product_id", id),
-    db.from("product_sizes").select("*").eq("product_id", id),
-    db.from("product_volumes").select("*").eq("product_id", id),
+
+  const [colors, sizes, volumes] = await Promise.all([
+    db.select().from(schema.productColors).where(eq(schema.productColors.product_id, id)),
+    db.select().from(schema.productSizes).where(eq(schema.productSizes.product_id, id)),
+    db.select().from(schema.productVolumes).where(eq(schema.productVolumes.product_id, id)),
   ]);
-  if (colorsRes.error) throw colorsRes.error;
-  if (sizesRes.error) throw sizesRes.error;
-  if (volumesRes.error) throw volumesRes.error;
+
   return {
     ...row,
-    colors: colorsRes.data ?? [],
-    sizes: sizesRes.data ?? [],
-    volumes: volumesRes.data ?? [],
-  } as Product;
+    price: row.price ?? undefined,
+    colors: colors as ProductColor[],
+    sizes: sizes as ProductSize[],
+    volumes: volumes as ProductVolume[],
+  } as unknown as Product;
 }

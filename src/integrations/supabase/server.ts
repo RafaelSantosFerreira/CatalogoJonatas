@@ -1,14 +1,3 @@
-import { createClient } from "@supabase/supabase-js";
-import { getServerSupabaseConfig } from "@/lib/supabase-env";
-
-const { url, key, isConfigured } = getServerSupabaseConfig();
-
-if (typeof process !== "undefined" && process.env.NODE_ENV === "development" && !isConfigured) {
-  console.warn(
-    "[Supabase Admin] Defina SUPABASE_API_URL + DATABASE_SERVICE_ROLE_KEY (ou SUPABASE_SERVICE_ROLE_KEY). DATABASE_URL https é opcional e deve ser o mesmo projeto."
-  );
-}
-
-export const supabaseAdminConfigured = isConfigured;
-
-export const supabaseAdmin = createClient(url, key);
+/** Stub: banco migrado para SQLite. Use `import { db } from "@/db"` nas API routes. */
+export const supabaseAdmin = null as never;
+export const supabaseAdminConfigured = true;

@@ -8,7 +8,7 @@ import { AppRootErrorBoundary } from "@/components/AppRootErrorBoundary";
 import { AuthProvider } from "@/context/AuthContext";
 import { CustomerProvider } from "@/context/CustomerContext";
 import { CartProvider } from "@/context/CartContext";
-import { supabaseAdmin, supabaseAdminConfigured } from "@/integrations/supabase/server";
+import { db, schema } from "@/db";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -20,14 +20,11 @@ const DEFAULT_DESCRIPTION = "Catálogo de produtos para ferragem com gestão com
 const METADATA_DB_MS = 4000;
 
 async function getAppNameForMetadata(): Promise<string> {
-  if (!supabaseAdminConfigured) return DEFAULT_APP_NAME;
   try {
     const data = await Promise.race([
-      supabaseAdmin
-        .from("company_settings")
-        .select("company_name")
-        .maybeSingle()
-        .then((r) => r.data ?? null),
+      db.select({ company_name: schema.companySettings.company_name })
+        .from(schema.companySettings)
+        .get(),
       new Promise<null>((resolve) => {
         setTimeout(() => resolve(null), METADATA_DB_MS);
       }),

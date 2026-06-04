@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { readStoredAdminTokens } from "@/lib/admin-bearer-storage";
 import { BarChart3, ShoppingCart, CalendarDays, BadgeDollarSign, Package } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, XAxis, YAxis } from "recharts";
 import {
@@ -83,28 +83,19 @@ export function AdminStatsPanel() {
       setError(null);
 
       const todayIso = startOfTodayIso();
-      const [ordersRes, itemsRes] = await Promise.all([
-        supabase
-          .from("orders")
-          .select("id, status, total_amount, created_at")
-          .order("created_at", { ascending: false })
-          .returns<OrderRow[]>(),
-        supabase
-          .from("order_items")
-          .select("product_name, quantity")
-          .returns<OrderItemRow[]>(),
-      ]);
-
-      if (ordersRes.error || itemsRes.error) {
+      const token = readStoredAdminTokens()?.access;
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await fetch("/api/admin/stats", { headers });
+      if (!res.ok) {
         if (!cancelled) {
-          setError(ordersRes.error?.message || itemsRes.error?.message || "Erro ao carregar estatísticas.");
+          setError("Erro ao carregar estatísticas.");
           setLoading(false);
         }
         return;
       }
-
-      const orders = ordersRes.data ?? [];
-      const orderItems = itemsRes.data ?? [];
+      const json = await res.json();
+      const orders: OrderRow[] = json.orders ?? [];
+      const orderItems: OrderItemRow[] = json.orderItems ?? [];
 
       const totalOrders = orders.length;
       const todayOrders = orders.filter((o) => (o.created_at || "") >= todayIso).length;
