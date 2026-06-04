@@ -4,7 +4,7 @@ import { logAppError } from "@/lib/app-logger";
 
 export async function GET() {
   try {
-    const settings = await db.select().from(schema.companySettings).get();
+    const settings = (await db.select().from(schema.companySettings))[0];
     return Response.json({ data: settings ?? null });
   } catch (e) {
     logAppError("api/company-settings.GET", e);
@@ -26,7 +26,7 @@ export async function PUT(request: Request) {
   }
 
   try {
-    const existing = await db.select({ id: schema.companySettings.id }).from(schema.companySettings).get();
+    const existing = (await db.select({ id: schema.companySettings.id }).from(schema.companySettings))[0];
     const payload = { ...(body as object), updated_at: new Date().toISOString() };
 
     if (existing?.id) {

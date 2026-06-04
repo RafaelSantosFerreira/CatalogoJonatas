@@ -36,7 +36,7 @@ export async function POST(request: Request) {
     }
 
     const payload = { ...twilio.data, updated_at: new Date().toISOString() };
-    const existing = await db.select({ id: schema.companySettings.id }).from(schema.companySettings).get();
+    const existing = (await db.select({ id: schema.companySettings.id }).from(schema.companySettings))[0];
 
     try {
       if (existing?.id) {

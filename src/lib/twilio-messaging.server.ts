@@ -32,7 +32,7 @@ export interface TwilioSendResult {
 }
 
 export async function fetchCompanyTwilioSettings(): Promise<TwilioSettings | null> {
-  const row = await db.select({
+  const row = (await db.select({
     twilio_account_sid: schema.companySettings.twilio_account_sid,
     twilio_auth_token: schema.companySettings.twilio_auth_token,
     twilio_whatsapp_from: schema.companySettings.twilio_whatsapp_from,
@@ -40,7 +40,7 @@ export async function fetchCompanyTwilioSettings(): Promise<TwilioSettings | nul
     whatsapp_notifications_enabled: schema.companySettings.whatsapp_notifications_enabled,
     whatsapp_country_code: schema.companySettings.whatsapp_country_code,
     whatsapp_number: schema.companySettings.whatsapp_number,
-  }).from(schema.companySettings).get();
+  }).from(schema.companySettings))[0];
   return row ?? null;
 }
 

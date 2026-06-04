@@ -44,11 +44,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const admin = await db
+    const admin = (await db
       .select()
       .from(schema.adminUsers)
-      .where(eq(schema.adminUsers.email, email))
-      .get();
+      .where(eq(schema.adminUsers.email, email)))[0];
 
     if (!admin) {
       return Response.json({ error: "Credenciais inválidas." }, { status: 401 });

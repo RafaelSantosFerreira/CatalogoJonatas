@@ -48,11 +48,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const existing = await db
+    const existing = (await db
       .select({ id: schema.adminUsers.id })
       .from(schema.adminUsers)
-      .where(eq(schema.adminUsers.email, ADMIN_EMAIL))
-      .get();
+      .where(eq(schema.adminUsers.email, ADMIN_EMAIL)))[0];
 
     if (existing) {
       return Response.json({

@@ -36,7 +36,7 @@ export async function loadProductsEnriched(): Promise<Product[]> {
 }
 
 export async function loadProductById(id: string): Promise<Product | null> {
-  const row = await db.select().from(schema.products).where(eq(schema.products.id, id)).get();
+  const row = (await db.select().from(schema.products).where(eq(schema.products.id, id)))[0];
   if (!row) return null;
 
   const [colors, sizes, volumes] = await Promise.all([

@@ -34,11 +34,10 @@ export async function getAdminUserIdFromRequest(request: Request): Promise<strin
   const expectedEmail = getSetupAdminCredentials().email.trim().toLowerCase();
   if (decoded.email.trim().toLowerCase() !== expectedEmail) return null;
 
-  const admin = await db
+  const admin = (await db
     .select({ id: schema.adminUsers.id, email_confirmed_at: schema.adminUsers.email_confirmed_at })
     .from(schema.adminUsers)
-    .where(eq(schema.adminUsers.id, decoded.sub))
-    .get();
+    .where(eq(schema.adminUsers.id, decoded.sub)))[0];
 
   if (!admin || !admin.email_confirmed_at) return null;
   return admin.id;

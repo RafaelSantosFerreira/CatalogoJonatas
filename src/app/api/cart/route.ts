@@ -41,11 +41,10 @@ export async function GET(request: Request) {
 
     const enriched = await Promise.all(
       items.map(async (item) => {
-        const product = await db
+        const product = (await db
           .select()
           .from(schema.products)
-          .where(eq(schema.products.id, item.product_id))
-          .get();
+          .where(eq(schema.products.id, item.product_id)))[0];
         return { ...item, product: product ?? undefined };
       })
     );
@@ -75,7 +74,7 @@ export async function POST(request: Request) {
     const sizeId = data.selected_size_id ?? null;
     const volumeId = data.selected_volume_id ?? null;
 
-    const existing = await db
+    const existing = (await db
       .select()
       .from(schema.cartItems)
       .where(
@@ -83,8 +82,7 @@ export async function POST(request: Request) {
           eq(schema.cartItems.customer_id, data.customer_id),
           eq(schema.cartItems.product_id, data.product_id)
         )
-      )
-      .get();
+      ))[0];
 
     if (existing &&
       (existing.selected_color_id ?? null) === colorId &&

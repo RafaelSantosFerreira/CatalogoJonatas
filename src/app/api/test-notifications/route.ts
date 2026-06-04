@@ -72,7 +72,7 @@ export async function POST(request: Request) {
     const channel: Channel = parsed.data.channel;
     logAppInfo("api/test-notifications.start", "Início do teste de notificação", { traceId, adminId, channel });
 
-    const company = await db.select().from(schema.companySettings).get();
+    const company = (await db.select().from(schema.companySettings))[0];
     if (!company) {
       return Response.json(
         { success: false, error: "Não foi possível carregar as configurações da empresa.", traceId },

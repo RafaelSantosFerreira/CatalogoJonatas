@@ -16,11 +16,10 @@ export async function GET(request: Request) {
     return Response.json({ error: "id obrigatório." }, { status: 400 });
   }
   try {
-    const customer = await db
+    const customer = (await db
       .select()
       .from(schema.customers)
-      .where(eq(schema.customers.id, id))
-      .get();
+      .where(eq(schema.customers.id, id)))[0];
     return Response.json({ data: customer ?? null });
   } catch (e) {
     logAppError("api/customers.GET", e);

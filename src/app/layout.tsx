@@ -24,7 +24,7 @@ async function getAppNameForMetadata(): Promise<string> {
     const data = await Promise.race([
       db.select({ company_name: schema.companySettings.company_name })
         .from(schema.companySettings)
-        .get(),
+        .then(rows => rows[0] ?? null),
       new Promise<null>((resolve) => {
         setTimeout(() => resolve(null), METADATA_DB_MS);
       }),
