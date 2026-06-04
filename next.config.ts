@@ -16,7 +16,7 @@ const csp = [
 
 const nextConfig: NextConfig = {
   distDir: isDev ? ".next-dev" : ".next",
-  serverExternalPackages: ["better-sqlite3"],
+
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion", "@radix-ui/react-icons"],
   },

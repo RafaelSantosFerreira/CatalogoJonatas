@@ -1,21 +1,29 @@
-import { integer, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
+import {
+  boolean,
+  doublePrecision,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  uniqueIndex,
+} from "drizzle-orm/pg-core";
 
-export const products = sqliteTable("products", {
+export const products = pgTable("products", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   name: text("name").notNull(),
   description: text("description"),
-  price: real("price"),
+  price: doublePrecision("price"),
   image_url: text("image_url"),
   category: text("category"),
   brand: text("brand"),
   sku: text("sku"),
   internal_code: text("internal_code"),
-  active: integer("active", { mode: "boolean" }).default(true),
+  active: boolean("active").default(true),
   created_at: text("created_at").$defaultFn(() => new Date().toISOString()),
   updated_at: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
-export const productColors = sqliteTable("product_colors", {
+export const productColors = pgTable("product_colors", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   product_id: text("product_id").notNull(),
   color_name: text("color_name").notNull(),
@@ -24,7 +32,7 @@ export const productColors = sqliteTable("product_colors", {
   updated_at: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
-export const productSizes = sqliteTable("product_sizes", {
+export const productSizes = pgTable("product_sizes", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   product_id: text("product_id").notNull(),
   size_label: text("size_label").notNull(),
@@ -33,16 +41,16 @@ export const productSizes = sqliteTable("product_sizes", {
   updated_at: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
-export const productVolumes = sqliteTable("product_volumes", {
+export const productVolumes = pgTable("product_volumes", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   product_id: text("product_id").notNull(),
-  volume_value: real("volume_value").notNull(),
+  volume_value: doublePrecision("volume_value").notNull(),
   volume_unit: text("volume_unit").notNull(),
   created_at: text("created_at").$defaultFn(() => new Date().toISOString()),
   updated_at: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
-export const customers = sqliteTable("customers", {
+export const customers = pgTable("customers", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   full_name: text("full_name").notNull(),
   phone_country_code: text("phone_country_code").notNull().default("+55"),
@@ -59,12 +67,12 @@ export const customers = sqliteTable("customers", {
   updated_at: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
-export const cartItems = sqliteTable("cart_items", {
+export const cartItems = pgTable("cart_items", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   customer_id: text("customer_id").notNull(),
   product_id: text("product_id").notNull(),
   quantity: integer("quantity").notNull().default(1),
-  unit_price: real("unit_price").notNull(),
+  unit_price: doublePrecision("unit_price").notNull(),
   selected_color_id: text("selected_color_id"),
   selected_color_name: text("selected_color_name"),
   selected_size_id: text("selected_size_id"),
@@ -78,15 +86,15 @@ export const cartItems = sqliteTable("cart_items", {
 
 export type OrderStatus = "pending" | "confirmed" | "processing" | "completed" | "cancelled";
 
-export const orders = sqliteTable("orders", {
+export const orders = pgTable("orders", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   customer_id: text("customer_id").notNull(),
   status: text("status").$type<OrderStatus>().notNull().default("pending"),
-  total_amount: real("total_amount").notNull().default(0),
+  total_amount: doublePrecision("total_amount").notNull().default(0),
   notes: text("notes"),
-  email_sent: integer("email_sent", { mode: "boolean" }).notNull().default(false),
+  email_sent: boolean("email_sent").notNull().default(false),
   email_sent_at: text("email_sent_at"),
-  whatsapp_sent: integer("whatsapp_sent", { mode: "boolean" }).notNull().default(false),
+  whatsapp_sent: boolean("whatsapp_sent").notNull().default(false),
   whatsapp_sent_at: text("whatsapp_sent_at"),
   customer_name: text("customer_name"),
   customer_phone_country_code: text("customer_phone_country_code"),
@@ -96,7 +104,7 @@ export const orders = sqliteTable("orders", {
   updated_at: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
-export const orderItems = sqliteTable("order_items", {
+export const orderItems = pgTable("order_items", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   order_id: text("order_id").notNull(),
   product_id: text("product_id").notNull(),
@@ -111,26 +119,26 @@ export const orderItems = sqliteTable("order_items", {
   selected_volume_label: text("selected_volume_label"),
   product_internal_code: text("product_internal_code"),
   quantity: integer("quantity").notNull().default(1),
-  unit_price: real("unit_price").notNull(),
-  total_price: real("total_price").notNull(),
+  unit_price: doublePrecision("unit_price").notNull(),
+  total_price: doublePrecision("total_price").notNull(),
   created_at: text("created_at").$defaultFn(() => new Date().toISOString()),
   updated_at: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
-export const companySettings = sqliteTable("company_settings", {
+export const companySettings = pgTable("company_settings", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   company_name: text("company_name"),
   order_email: text("order_email"),
   whatsapp_country_code: text("whatsapp_country_code").notNull().default("+55"),
   whatsapp_number: text("whatsapp_number"),
-  email_notifications_enabled: integer("email_notifications_enabled", { mode: "boolean" }).default(true),
-  whatsapp_notifications_enabled: integer("whatsapp_notifications_enabled", { mode: "boolean" }).default(true),
-  show_prices: integer("show_prices", { mode: "boolean" }).notNull().default(true),
+  email_notifications_enabled: boolean("email_notifications_enabled").default(true),
+  whatsapp_notifications_enabled: boolean("whatsapp_notifications_enabled").default(true),
+  show_prices: boolean("show_prices").notNull().default(true),
   smtp_host: text("smtp_host"),
   smtp_port: integer("smtp_port").default(587),
   smtp_user: text("smtp_user"),
   smtp_password: text("smtp_password"),
-  smtp_secure: integer("smtp_secure", { mode: "boolean" }).default(false),
+  smtp_secure: boolean("smtp_secure").default(false),
   smtp_from_name: text("smtp_from_name"),
   smtp_from_email: text("smtp_from_email"),
   twilio_account_sid: text("twilio_account_sid"),
@@ -143,27 +151,26 @@ export const companySettings = sqliteTable("company_settings", {
 
 export type WhatsAppLogStatus = "success" | "error" | "pending";
 
-export const whatsappLogs = sqliteTable("whatsapp_logs", {
+export const whatsappLogs = pgTable("whatsapp_logs", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   order_id: text("order_id"),
   to_number: text("to_number").notNull(),
   from_number: text("from_number"),
   content_sid: text("content_sid"),
-  content_variables: text("content_variables", { mode: "json" }),
+  content_variables: jsonb("content_variables"),
   status: text("status").$type<WhatsAppLogStatus>().notNull().default("pending"),
   twilio_message_sid: text("twilio_message_sid"),
   http_status_code: integer("http_status_code"),
   error_code: text("error_code"),
   error_message: text("error_message"),
-  response_body: text("response_body", { mode: "json" }),
-  request_payload: text("request_payload", { mode: "json" }),
+  response_body: jsonb("response_body"),
+  request_payload: jsonb("request_payload"),
   sent_at: text("sent_at"),
   created_at: text("created_at").$defaultFn(() => new Date().toISOString()),
   updated_at: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
 
-/** Substitui auth.users + profiles + user_roles do Supabase */
-export const adminUsers = sqliteTable("admin_users", {
+export const adminUsers = pgTable("admin_users", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
   email: text("email").notNull(),
   password_hash: text("password_hash").notNull(),

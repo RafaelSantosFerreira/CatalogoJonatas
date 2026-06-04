@@ -1,27 +1,28 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
+import { drizzle } from "drizzle-orm/node-postgres";
+import { migrate } from "drizzle-orm/node-postgres/migrator";
+import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 import path from "path";
 import * as schema from "./schema";
 
-const DB_PATH = process.env.DB_PATH ?? path.join(process.cwd(), "data", "catalog.db");
-
 async function seed() {
-  const sqlite = new Database(DB_PATH);
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
-  const db = drizzle(sqlite, { schema });
+  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+  const db = drizzle(pool, { schema });
 
-  migrate(db, { migrationsFolder: path.join(process.cwd(), "drizzle") });
+  await migrate(db, { migrationsFolder: path.join(process.cwd(), "drizzle") });
 
-  // Limpar tabelas dependentes antes
-  db.delete(schema.productColors).run();
-  db.delete(schema.productSizes).run();
-  db.delete(schema.productVolumes).run();
-  db.delete(schema.products).run();
-  db.delete(schema.companySettings).run();
-  db.delete(schema.adminUsers).run();
+  // Limpar tabelas na ordem correta (dependentes primeiro)
+  await db.delete(schema.whatsappLogs);
+  await db.delete(schema.productColors);
+  await db.delete(schema.productSizes);
+  await db.delete(schema.productVolumes);
+  await db.delete(schema.cartItems);
+  await db.delete(schema.orderItems);
+  await db.delete(schema.orders);
+  await db.delete(schema.customers);
+  await db.delete(schema.products);
+  await db.delete(schema.companySettings);
+  await db.delete(schema.adminUsers);
 
   console.log("Inserindo produtos...");
 
@@ -106,7 +107,7 @@ async function seed() {
       name: "Martelo Carpinteiro",
       description: "Martelo de carpinteiro com cabo de madeira, 27 mm.",
       price: 34.90,
-      image_url: "https://images.unsplash.com/photo-1504148455328-c376907d081c?w=600&q=80&fit=crop",
+      image_url: "https://images.unsplash.com/photo-1504149455328-c376907d081c?w=600&q=80&fit=crop",
       category: "Ferramentas",
       brand: "Tramontina",
       sku: "MART-CARP-27",
@@ -174,7 +175,7 @@ async function seed() {
       internal_code: "HID-003",
       active: true,
     },
-    // Organização e acabamento
+    // Acabamento
     {
       id: crypto.randomUUID(),
       name: "Dobradiça Inox 3\"",
@@ -213,96 +214,96 @@ async function seed() {
     },
   ];
 
-  db.insert(schema.products).values(productsList).run();
+  await db.insert(schema.products).values(productsList);
 
   // Variações para parafuso M6
   const par6 = productsList[0];
-  db.insert(schema.productSizes).values([
+  await db.insert(schema.productSizes).values([
     { product_id: par6.id, size_label: "M6 x 20mm", size_unit: "mm" },
     { product_id: par6.id, size_label: "M6 x 30mm", size_unit: "mm" },
     { product_id: par6.id, size_label: "M6 x 40mm", size_unit: "mm" },
-  ]).run();
+  ]);
 
   // Variações para parafuso M8
   const par8 = productsList[1];
-  db.insert(schema.productSizes).values([
+  await db.insert(schema.productSizes).values([
     { product_id: par8.id, size_label: "M8 x 25mm", size_unit: "mm" },
     { product_id: par8.id, size_label: "M8 x 40mm", size_unit: "mm" },
     { product_id: par8.id, size_label: "M8 x 60mm", size_unit: "mm" },
-  ]).run();
+  ]);
 
-  // Variações de cor para tinta esmalte
+  // Variações de cor e volume para tinta esmalte
   const tinta = productsList[3];
-  db.insert(schema.productColors).values([
+  await db.insert(schema.productColors).values([
     { product_id: tinta.id, color_name: "Branco", hex_code: "#FFFFFF" },
     { product_id: tinta.id, color_name: "Preto", hex_code: "#000000" },
     { product_id: tinta.id, color_name: "Cinza", hex_code: "#808080" },
     { product_id: tinta.id, color_name: "Vermelho", hex_code: "#CC0000" },
     { product_id: tinta.id, color_name: "Azul", hex_code: "#003399" },
-  ]).run();
-  db.insert(schema.productVolumes).values([
+  ]);
+  await db.insert(schema.productVolumes).values([
     { product_id: tinta.id, volume_value: 0.9, volume_unit: "L" },
     { product_id: tinta.id, volume_value: 3.6, volume_unit: "L" },
     { product_id: tinta.id, volume_value: 18, volume_unit: "L" },
-  ]).run();
+  ]);
 
   // Variações de volume para selador
   const selador = productsList[4];
-  db.insert(schema.productVolumes).values([
+  await db.insert(schema.productVolumes).values([
     { product_id: selador.id, volume_value: 3.6, volume_unit: "L" },
     { product_id: selador.id, volume_value: 18, volume_unit: "L" },
-  ]).run();
+  ]);
 
   // Variações de volume para massa corrida
   const massa = productsList[5];
-  db.insert(schema.productVolumes).values([
+  await db.insert(schema.productVolumes).values([
     { product_id: massa.id, volume_value: 18, volume_unit: "kg" },
     { product_id: massa.id, volume_value: 25, volume_unit: "kg" },
-  ]).run();
+  ]);
 
   // Variações de tamanho para chave combinada
   const chave = productsList[7];
-  db.insert(schema.productSizes).values([
+  await db.insert(schema.productSizes).values([
     { product_id: chave.id, size_label: "10mm", size_unit: "mm" },
     { product_id: chave.id, size_label: "13mm", size_unit: "mm" },
     { product_id: chave.id, size_label: "17mm", size_unit: "mm" },
     { product_id: chave.id, size_label: "19mm", size_unit: "mm" },
-  ]).run();
+  ]);
 
   // Cano PVC em diferentes comprimentos
   const cano = productsList[9];
-  db.insert(schema.productSizes).values([
+  await db.insert(schema.productSizes).values([
     { product_id: cano.id, size_label: "3m", size_unit: "m" },
     { product_id: cano.id, size_label: "6m", size_unit: "m" },
-  ]).run();
+  ]);
 
-  // Dobradiça em variações de cor
+  // Dobradiça em variações de cor e tamanho
   const dobradica = productsList[12];
-  db.insert(schema.productColors).values([
+  await db.insert(schema.productColors).values([
     { product_id: dobradica.id, color_name: "Inox Escovado", hex_code: "#C0C0C0" },
     { product_id: dobradica.id, color_name: "Preto Fosco", hex_code: "#1a1a1a" },
     { product_id: dobradica.id, color_name: "Dourado", hex_code: "#CFB53B" },
-  ]).run();
-  db.insert(schema.productSizes).values([
+  ]);
+  await db.insert(schema.productSizes).values([
     { product_id: dobradica.id, size_label: "2,5\"", size_unit: "pol" },
     { product_id: dobradica.id, size_label: "3\"", size_unit: "pol" },
     { product_id: dobradica.id, size_label: "4\"", size_unit: "pol" },
-  ]).run();
+  ]);
 
   // Admin user
   const adminEmail = process.env.SETUP_ADMIN_EMAIL ?? "admin@ferragem.com";
   const adminPassword = process.env.SETUP_ADMIN_PASSWORD ?? "admin123";
   const passwordHash = await bcrypt.hash(adminPassword, 12);
-  db.insert(schema.adminUsers).values({
+  await db.insert(schema.adminUsers).values({
     email: adminEmail,
     password_hash: passwordHash,
     full_name: "Administrador",
     email_confirmed_at: new Date().toISOString(),
-  }).run();
+  });
 
   // Company settings
-  db.insert(schema.companySettings).values({
-    company_name: "Ferragem Pro",
+  await db.insert(schema.companySettings).values({
+    company_name: process.env.COMPANY_NAME ?? "Ferragem Pro",
     order_email: process.env.ORDER_EMAIL ?? "pedidos@ferragem.com",
     whatsapp_country_code: process.env.WHATSAPP_COUNTRY_CODE ?? "+55",
     whatsapp_number: process.env.WHATSAPP_NUMBER ?? "",
@@ -313,12 +314,13 @@ async function seed() {
     twilio_auth_token: process.env.TWILIO_AUTH_TOKEN ?? null,
     twilio_whatsapp_from: process.env.TWILIO_WHATSAPP_FROM ?? null,
     twilio_content_sid: process.env.TWILIO_CONTENT_SID ?? null,
-  }).run();
+  });
 
   console.log(`✓ ${productsList.length} produtos inseridos`);
   console.log(`✓ Admin criado: ${adminEmail}`);
   console.log("✓ Company settings inseridos");
-  sqlite.close();
+
+  await pool.end();
 }
 
 seed().catch((err) => {
