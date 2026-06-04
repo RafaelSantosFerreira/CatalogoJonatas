@@ -15,12 +15,20 @@ interface TwilioErrorResponse {
   message?: string;
   code?: number | string;
   status?: number;
-  more_info?: string;
 }
 
 interface TwilioSuccessResponse {
   sid?: string;
   status?: string;
+}
+
+export interface TwilioSendResult {
+  success: boolean;
+  error?: string;
+  errorCode?: string;
+  httpStatus?: number;
+  messageSid?: string;
+  responseBody?: Record<string, unknown>;
 }
 
 export async function fetchCompanyTwilioSettings(): Promise<TwilioSettings | null> {
@@ -36,50 +44,25 @@ export async function fetchCompanyTwilioSettings(): Promise<TwilioSettings | nul
   return row ?? null;
 }
 
-export interface TwilioSendResult {
-  success: boolean;
-  error?: string;
-  errorCode?: string;
-  httpStatus?: number;
-  messageSid?: string;
-  responseBody?: Record<string, unknown>;
-}
+const mask = (v: string): string => {
+  if (!v) return "(vazio)";
+  if (v.length <= 8) return `${v.slice(0, 2)}***${v.slice(-1)}`;
+  return `${v.slice(0, 6)}***${v.slice(-4)}`;
+};
+const maskPhone = (v: string): string => v.replace(/(\+\d{2})\d+(\d{2})/, "$1****$2");
 
-export async function sendTwilioContentMessage(params: {
-  accountSid: string;
-  authToken: string;
-  from: string;
-  to: string;
-  contentSid: string;
-  contentVariables: Record<string, string>;
-}): Promise<TwilioSendResult> {
-  const { accountSid, authToken, from, to, contentSid, contentVariables } = params;
+async function postToTwilio(
+  accountSid: string,
+  authToken: string,
+  formData: URLSearchParams,
+  logContext: Record<string, unknown>
+): Promise<TwilioSendResult> {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
   const credentials = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
 
-  const formData = new URLSearchParams();
-  formData.append("From", from);
-  formData.append("To", to);
-  formData.append("ContentSid", contentSid);
-  formData.append("ContentVariables", JSON.stringify(contentVariables));
-
-  let responseBody: Record<string, unknown> = {};
-  let httpStatus = 0;
-
-  const mask = (v: string): string => {
-    if (!v) return "(vazio)";
-    if (v.length <= 8) return `${v.slice(0, 2)}***${v.slice(-1)}`;
-    return `${v.slice(0, 6)}***${v.slice(-4)}`;
-  };
-  const maskPhone = (v: string): string => v.replace(/(\+\d{2})\d+(\d{2})/, "$1****$2");
-
   logAppInfo("twilio-messaging.request", "Enviando request Twilio", {
     accountSidMasked: mask(accountSid),
-    authTokenMasked: mask(authToken),
-    fromMasked: maskPhone(from),
-    toMasked: maskPhone(to),
-    contentSidMasked: mask(contentSid),
-    contentVariables,
+    ...logContext,
   });
 
   try {
@@ -92,8 +75,8 @@ export async function sendTwilioContentMessage(params: {
       body: formData.toString(),
     });
 
-    httpStatus = response.status;
-
+    const httpStatus = response.status;
+    let responseBody: Record<string, unknown> = {};
     try {
       responseBody = await response.json();
     } catch {
@@ -104,55 +87,89 @@ export async function sendTwilioContentMessage(params: {
       const errBody = responseBody as TwilioErrorResponse;
       const errorMessage = errBody?.message ?? `HTTP ${httpStatus}`;
       const errorCode = errBody?.code ? String(errBody.code) : String(httpStatus);
-
-      logAppError("twilio-messaging.sendHttpError", new Error(errorMessage), {
-        httpStatus,
-        errorCode,
-        responseBody,
-      });
-
+      logAppError("twilio-messaging.httpError", new Error(errorMessage), { httpStatus, errorCode, responseBody });
       return { success: false, error: errorMessage, errorCode, httpStatus, responseBody };
     }
 
     const successBody = responseBody as TwilioSuccessResponse;
-    logAppInfo("twilio-messaging.response.ok", "Twilio aceitou a mensagem", {
+    logAppInfo("twilio-messaging.ok", "Twilio aceitou a mensagem", {
       httpStatus,
       messageSid: successBody?.sid,
       status: successBody?.status,
     });
-
     return { success: true, messageSid: successBody?.sid, httpStatus, responseBody };
   } catch (fetchErr) {
     const errorMessage = fetchErr instanceof Error ? fetchErr.message : "Erro de rede desconhecido";
-    logAppError("twilio-messaging.sendNetwork", fetchErr);
-    return {
-      success: false,
-      error: errorMessage,
-      errorCode: "NETWORK_ERROR",
-      httpStatus: 0,
-      responseBody: { networkError: errorMessage },
-    };
+    logAppError("twilio-messaging.networkError", fetchErr);
+    return { success: false, error: errorMessage, errorCode: "NETWORK_ERROR", httpStatus: 0, responseBody: {} };
   }
+}
+
+/** Envia via Content Template aprovado pela Meta (variáveis {{1}}, {{2}}, etc.). */
+export async function sendTwilioContentMessage(params: {
+  accountSid: string;
+  authToken: string;
+  from: string;
+  to: string;
+  contentSid: string;
+  contentVariables: Record<string, string>;
+}): Promise<TwilioSendResult> {
+  const { accountSid, authToken, from, to, contentSid, contentVariables } = params;
+  const formData = new URLSearchParams();
+  formData.append("From", from);
+  formData.append("To", to);
+  formData.append("ContentSid", contentSid);
+  formData.append("ContentVariables", JSON.stringify(contentVariables));
+
+  return postToTwilio(accountSid, authToken, formData, {
+    mode: "template",
+    fromMasked: maskPhone(from),
+    toMasked: maskPhone(to),
+    contentSidMasked: mask(contentSid),
+    contentVariables,
+  });
+}
+
+/** Envia mensagem de texto livre (Body) — suporta emojis, quebras de linha e formatação WhatsApp. */
+export async function sendTwilioBodyMessage(params: {
+  accountSid: string;
+  authToken: string;
+  from: string;
+  to: string;
+  body: string;
+}): Promise<TwilioSendResult> {
+  const { accountSid, authToken, from, to, body } = params;
+  const formData = new URLSearchParams();
+  formData.append("From", from);
+  formData.append("To", to);
+  formData.append("Body", body);
+
+  return postToTwilio(accountSid, authToken, formData, {
+    mode: "body",
+    fromMasked: maskPhone(from),
+    toMasked: maskPhone(to),
+    bodyPreview: body.slice(0, 60),
+  });
 }
 
 export async function saveWhatsAppLogToDb(params: {
   orderId?: string;
   to: string;
   from: string;
-  contentSid: string;
-  contentVariables: Record<string, string>;
+  contentSid?: string;
+  contentVariables?: Record<string, string>;
+  body?: string;
   result: TwilioSendResult;
   requestPayload: Record<string, unknown>;
 }): Promise<void> {
-  const { orderId, to, from, contentSid, contentVariables, result, requestPayload } = params;
-
+  const { orderId, to, from, contentSid, contentVariables, body, result, requestPayload } = params;
   try {
     await db.insert(schema.whatsappLogs).values({
       order_id: orderId ?? null,
       to_number: to,
       from_number: from,
-      content_sid: contentSid,
-      content_variables: contentVariables,
+      content_sid: contentSid ?? null,
+      content_variables: (contentVariables ?? (body ? { body: body.slice(0, 200) } : {})) as Record<string, string>,
       status: result.success ? "success" : "error",
       twilio_message_sid: result.messageSid ?? null,
       http_status_code: result.httpStatus ?? null,

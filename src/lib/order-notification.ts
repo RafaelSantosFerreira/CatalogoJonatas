@@ -51,19 +51,23 @@ export function buildOrderText(
     currency: "BRL",
   });
 
+  const phone = `${customer.phone_country_code} ${customer.phone_number}`.trim();
+  const now = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+
   return [
     "🛒 *NOVO PEDIDO*",
-    orderId ? `📋 *Pedido:* #${orderId.slice(0, 8).toUpperCase()}` : null,
+    orderId ? `📋 *#${orderId.slice(0, 8).toUpperCase()}*` : null,
+    "━━━━━━━━━━━━━━━━",
     "",
     `👤 *Cliente:* ${customer.full_name}`,
-    `📱 *Telefone:* ${customer.phone_country_code} ${customer.phone_number}`,
+    `📱 *Telefone:* ${phone}`,
     "",
-    "🛍️ *Itens do Pedido:*",
+    "🛍️ *Itens:*",
     itemLines,
     "",
+    "━━━━━━━━━━━━━━━━",
     `💰 *Total: ${totalFormatted}*`,
-    "",
-    `📅 *Data:* ${new Date().toLocaleString("pt-BR")}`,
+    `📅 ${now}`,
   ]
     .filter((l) => l !== null)
     .join("\n");
@@ -164,7 +168,7 @@ export async function sendTwilioWhatsApp(
   traceId?: string
 ): Promise<{ success: boolean; error?: string; traceId: string; httpStatus?: number }> {
   const trace = traceId || createTraceId("wa");
-  const contentVariables = buildContentVariables(customer, items, total, orderId);
+  const messageBody = buildOrderText(customer, items, total, orderId);
 
   try {
     const response = await fetch("/api/whatsapp", {
@@ -175,7 +179,7 @@ export async function sendTwilioWhatsApp(
         "x-flow-source": "cart-finalize",
       },
       body: JSON.stringify({
-        contentVariables,
+        body: messageBody,
         orderId,
         useCompanyWhatsappTarget: true,
       }),
@@ -213,7 +217,6 @@ export function hasTwilioConfigured(settings: CompanySettings | null | undefined
     settings.twilio_account_sid &&
     settings.twilio_auth_token &&
     settings.twilio_whatsapp_from &&
-    settings.twilio_content_sid &&
     settings.whatsapp_notifications_enabled
   );
 }

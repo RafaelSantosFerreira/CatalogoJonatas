@@ -4,6 +4,7 @@ import {
   fetchCompanyTwilioSettings,
   type TwilioSettings,
   sendTwilioContentMessage,
+  sendTwilioBodyMessage,
   saveWhatsAppLogToDb,
 } from "@/lib/twilio-messaging.server";
 import { sendSmtpTest } from "@/lib/smtp-send.server";
@@ -110,27 +111,29 @@ export async function POST(request: Request) {
         );
       }
 
-      const contentVariables: Record<string, string> = {
-        "1": company.company_name || "Teste",
-        "2": `#TESTE | notificação de teste | painel admin · ${new Date().toLocaleString("pt-BR")}`,
-      };
+      const now = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+      const companyName = company.company_name || "Ferragem Pro";
+      const testBody =
+        `🛠️ *${companyName}* — Teste de notificação\n\n` +
+        `✅ A integração WhatsApp está funcionando!\n\n` +
+        `📅 Data/hora: ${now}\n` +
+        `🔔 Esta é uma mensagem de teste enviada pelo painel administrativo.\n\n` +
+        `_Ignore esta mensagem._`;
 
-      const result = await sendTwilioContentMessage({
+      const result = await sendTwilioBodyMessage({
         accountSid: s.twilio_account_sid!,
         authToken: s.twilio_auth_token!,
         from: s.twilio_whatsapp_from!,
         to,
-        contentSid: s.twilio_content_sid!,
-        contentVariables,
+        body: testBody,
       });
 
       await saveWhatsAppLogToDb({
         to,
         from: s.twilio_whatsapp_from!,
-        contentSid: s.twilio_content_sid!,
-        contentVariables,
+        body: testBody,
         result,
-        requestPayload: { kind: "admin_test", to, contentVariables, adminUserId: adminId },
+        requestPayload: { kind: "admin_test", to, body: testBody, adminUserId: adminId },
       });
 
       if (!result.success) {

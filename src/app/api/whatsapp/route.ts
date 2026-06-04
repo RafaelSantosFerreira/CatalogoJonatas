@@ -4,6 +4,7 @@ import { createTraceId, logAppError, logAppInfo, logAppWarn } from "@/lib/app-lo
 import {
   fetchCompanyTwilioSettings,
   sendTwilioContentMessage,
+  sendTwilioBodyMessage,
   saveWhatsAppLogToDb,
 } from "@/lib/twilio-messaging.server";
 import { checkRateLimit } from "@/lib/rate-limit";
@@ -11,7 +12,8 @@ import { z } from "zod";
 
 const whatsappPayloadSchema = z.object({
   to: z.string().min(5).optional(),
-  contentVariables: z.record(z.string(), z.string()),
+  body: z.string().optional(),
+  contentVariables: z.record(z.string(), z.string()).optional(),
   orderId: z.string().uuid().optional(),
   useCompanyWhatsappTarget: z.boolean().optional(),
 });
@@ -42,7 +44,14 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
-    const { to, contentVariables, orderId, useCompanyWhatsappTarget } = parsed.data;
+    const { to, body, contentVariables, orderId, useCompanyWhatsappTarget } = parsed.data;
+
+    if (!body && !contentVariables) {
+      return Response.json(
+        { success: false, error: "Informe 'body' (texto livre) ou 'contentVariables' (template).", traceId },
+        { status: 400 }
+      );
+    }
 
     const settings = await fetchCompanyTwilioSettings();
     if (!settings) {
@@ -68,7 +77,8 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!twilio_content_sid) {
+    const useBodyMode = Boolean(body);
+    if (!useBodyMode && !twilio_content_sid) {
       return Response.json(
         { success: false, error: "Content SID do template Twilio não configurado.", traceId },
         { status: 400 }
@@ -106,27 +116,33 @@ export async function POST(request: Request) {
     const requestPayload = {
       From: twilio_whatsapp_from,
       To: toFormatted,
-      ContentSid: twilio_content_sid,
-      ContentVariables: contentVariables,
+      ...(useBodyMode ? { Body: body } : { ContentSid: twilio_content_sid, ContentVariables: contentVariables }),
       TraceId: traceId,
       Source: flowSource,
     };
 
-    const result = await sendTwilioContentMessage({
-      accountSid: twilio_account_sid,
-      authToken: twilio_auth_token,
-      from: twilio_whatsapp_from,
-      to: toFormatted,
-      contentSid: twilio_content_sid,
-      contentVariables,
-    });
+    const result = useBodyMode
+      ? await sendTwilioBodyMessage({
+          accountSid: twilio_account_sid,
+          authToken: twilio_auth_token,
+          from: twilio_whatsapp_from,
+          to: toFormatted,
+          body: body!,
+        })
+      : await sendTwilioContentMessage({
+          accountSid: twilio_account_sid,
+          authToken: twilio_auth_token,
+          from: twilio_whatsapp_from,
+          to: toFormatted,
+          contentSid: twilio_content_sid!,
+          contentVariables: contentVariables!,
+        });
 
     await saveWhatsAppLogToDb({
       orderId,
       to: toFormatted,
       from: twilio_whatsapp_from,
-      contentSid: twilio_content_sid,
-      contentVariables,
+      ...(useBodyMode ? { body: body! } : { contentSid: twilio_content_sid!, contentVariables: contentVariables! }),
       result,
       requestPayload,
     });
