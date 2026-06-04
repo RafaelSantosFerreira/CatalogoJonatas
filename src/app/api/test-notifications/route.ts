@@ -4,7 +4,6 @@ import {
   fetchCompanyTwilioSettings,
   type TwilioSettings,
   sendTwilioContentMessage,
-  sendTwilioBodyMessage,
   saveWhatsAppLogToDb,
   fetchTwilioMessageStatus,
 } from "@/lib/twilio-messaging.server";
@@ -113,28 +112,23 @@ export async function POST(request: Request) {
       }
 
       const now = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-      const companyName = company.company_name || "Ferragem Pro";
-      const testBody =
-        `🛠️ *${companyName}* — Teste de notificação\n\n` +
-        `✅ A integração WhatsApp está funcionando!\n\n` +
-        `📅 Data/hora: ${now}\n` +
-        `🔔 Esta é uma mensagem de teste enviada pelo painel administrativo.\n\n` +
-        `_Ignore esta mensagem._`;
 
-      const result = await sendTwilioBodyMessage({
+      const result = await sendTwilioContentMessage({
         accountSid: s.twilio_account_sid!,
         authToken: s.twilio_auth_token!,
         from: s.twilio_whatsapp_from!,
         to,
-        body: testBody,
+        contentSid: s.twilio_content_sid!,
+        contentVariables: { "1": "Teste", "2": now },
       });
 
       await saveWhatsAppLogToDb({
         to,
         from: s.twilio_whatsapp_from!,
-        body: testBody,
+        contentSid: s.twilio_content_sid!,
+        contentVariables: { "1": "Teste", "2": now },
         result,
-        requestPayload: { kind: "admin_test", to, body: testBody, adminUserId: adminId },
+        requestPayload: { kind: "admin_test", to, contentSid: s.twilio_content_sid, adminUserId: adminId },
       });
 
       if (!result.success) {
@@ -161,9 +155,13 @@ export async function POST(request: Request) {
       });
 
       if (delivery.status === "failed" || delivery.status === "undelivered") {
+        const isSandbox = delivery.errorCode === "63015";
+        const error = isSandbox
+          ? `Número não entrou no WhatsApp Sandbox da Twilio. No WhatsApp do número ${to}, envie a mensagem "join <palavra-do-sandbox>" para +14155238886. A palavra do sandbox aparece no painel da Twilio em Messaging → Try it out → Send a WhatsApp message.`
+          : delivery.errorMessage ?? "Mensagem não entregue pelo Twilio.";
         return Response.json({
           success: false,
-          error: delivery.errorMessage ?? "Mensagem não entregue pelo Twilio.",
+          error,
           errorCode: delivery.errorCode,
           deliveryStatus: delivery.status,
           messageSid: result.messageSid,
