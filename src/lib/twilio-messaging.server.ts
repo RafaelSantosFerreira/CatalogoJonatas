@@ -152,6 +152,26 @@ export async function sendTwilioBodyMessage(params: {
   });
 }
 
+export async function fetchTwilioMessageStatus(
+  accountSid: string,
+  authToken: string,
+  messageSid: string
+): Promise<{ status: string; errorCode?: string; errorMessage?: string }> {
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages/${messageSid}.json`;
+  const credentials = Buffer.from(`${accountSid}:${authToken}`).toString("base64");
+  try {
+    const res = await fetch(url, { headers: { Authorization: `Basic ${credentials}` } });
+    const body = await res.json() as Record<string, unknown>;
+    return {
+      status: String(body.status ?? "unknown"),
+      errorCode: body.error_code ? String(body.error_code) : undefined,
+      errorMessage: body.error_message ? String(body.error_message) : undefined,
+    };
+  } catch {
+    return { status: "unknown" };
+  }
+}
+
 export async function saveWhatsAppLogToDb(params: {
   orderId?: string;
   to: string;

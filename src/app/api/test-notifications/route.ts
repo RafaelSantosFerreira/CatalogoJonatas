@@ -6,6 +6,7 @@ import {
   sendTwilioContentMessage,
   sendTwilioBodyMessage,
   saveWhatsAppLogToDb,
+  fetchTwilioMessageStatus,
 } from "@/lib/twilio-messaging.server";
 import { sendSmtpTest } from "@/lib/smtp-send.server";
 import { getAdminUserIdFromRequest } from "@/lib/verify-admin-request";
@@ -143,9 +144,37 @@ export async function POST(request: Request) {
         );
       }
 
+      // Aguarda 4s e consulta status real de entrega (erros como 63015 chegam depois)
+      await new Promise(r => setTimeout(r, 4000));
+      const delivery = await fetchTwilioMessageStatus(
+        s.twilio_account_sid!,
+        s.twilio_auth_token!,
+        result.messageSid!
+      );
+
+      logAppInfo("api/test-notifications.delivery", "Status de entrega Twilio", {
+        traceId,
+        messageSid: result.messageSid,
+        deliveryStatus: delivery.status,
+        errorCode: delivery.errorCode,
+        errorMessage: delivery.errorMessage,
+      });
+
+      if (delivery.status === "failed" || delivery.status === "undelivered") {
+        return Response.json({
+          success: false,
+          error: delivery.errorMessage ?? "Mensagem não entregue pelo Twilio.",
+          errorCode: delivery.errorCode,
+          deliveryStatus: delivery.status,
+          messageSid: result.messageSid,
+          traceId,
+        }, { status: 502 });
+      }
+
       return Response.json({
         success: true,
-        message: "Mensagem de teste enfileirada no Twilio.",
+        message: `Mensagem enfileirada no Twilio (status: ${delivery.status}).`,
+        deliveryStatus: delivery.status,
         messageSid: result.messageSid,
         toMasked: "whatsapp:*** (número da empresa)",
         traceId,
