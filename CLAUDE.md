@@ -6,7 +6,8 @@ Catálogo de produtos para loja de ferragem com carrinho, painel admin e notific
 
 - Next.js 15 + App Router + React 19 + TypeScript
 - Tailwind CSS v4 + shadcn/ui (Radix UI)
-- Supabase (Auth + PostgREST) — `@supabase/supabase-js`
+- PostgreSQL (local) + Drizzle ORM (`drizzle-orm/node-postgres`)
+- Auth JWT local — `jsonwebtoken` + `bcryptjs` (sem Supabase)
 - Twilio — WhatsApp via Content Templates
 - Nodemailer — SMTP
 - Zod — validação de payload
@@ -14,17 +15,16 @@ Catálogo de produtos para loja de ferragem com carrinho, painel admin e notific
 ## Regras de arquitetura
 
 - Operações sensíveis (chaves, WhatsApp, e-mail, CRUD admin) ficam **exclusivamente** em `src/app/api/*`
-- `src/integrations/supabase/client.ts` — usa anon key + respeita RLS (browser)
-- `src/integrations/supabase/server.ts` — usa service role + **bypassa RLS** (apenas em API routes)
+- `src/db/index.ts` — conexão Drizzle com PostgreSQL via `DATABASE_URL` (connection string TCP)
 - Headers de segurança definidos **só** em `next.config.ts` — nunca em middleware
 - Credenciais Twilio em runtime vêm de `company_settings` no banco, não do `.env` diretamente
+- Auth admin: JWT assinado com `JWT_SECRET`; verificado em `src/lib/verify-admin-request.ts`
 
-## Autenticação admin — 4 condições simultâneas
+## Autenticação admin — condições simultâneas
 
-1. Sessão válida no Supabase Auth
-2. Role `admin` em `user_roles`
-3. `email_confirmed_at` preenchido
-4. Email igual ao `SETUP_ADMIN_EMAIL` no servidor
+1. JWT Bearer válido (assinado com `JWT_SECRET`)
+2. Email no JWT igual ao `SETUP_ADMIN_EMAIL` no servidor
+3. Registro em `admin_users` com `email_confirmed_at` preenchido
 
 ## Dev
 
@@ -40,10 +40,22 @@ npm run dev:turbo    # Turbopack (mais rápido, mas pode ter problemas com muito
 ## Scripts de diagnóstico
 
 ```bash
-npm run test:db        # testa conexão HTTP + PostgREST
-npm run test:db:crud   # DDL/DML Postgres (requer POSTGRES_URL ou SUPABASE_DB_* no .env.local)
+npm run test:db        # testa conexão PostgreSQL
 npm run test:twilio    # testa envio WhatsApp direto na Twilio
 ```
+
+## Produção — Hetzner VPS
+
+- **IP:** 116.202.27.216 | **SSH:** `ssh root@116.202.27.216`
+- **Stack:** Ubuntu 24.04, Node 20 (nvm), PM2, Nginx (proxy porta 80 → 3000)
+- **Banco:** PostgreSQL local, `catalogo_db`, `catalogo_user`, host `127.0.0.1:5432`
+- **Deploy/update:**
+  ```bash
+  export NVM_DIR="$HOME/.nvm" && source "$NVM_DIR/nvm.sh"
+  cd /var/www/catalogo && git pull origin master && npm run build
+  set -a && source .env.local && set +a
+  pm2 restart catalogo-jonatas --update-env
+  ```
 
 ## Memória interna do projeto
 
@@ -56,7 +68,8 @@ Antes de mudanças grandes, ler a memória e registrar correções em **Erros e 
 
 ## Armadilhas conhecidas
 
+- **PM2 perde DATABASE_URL** — sempre `source .env.local` antes de `pm2 restart --update-env`
+- **PostgreSQL peer auth** — usar `host=127.0.0.1` (TCP), não `localhost` (socket)
 - **Twilio erro 63015** — número destino não entrou no WhatsApp Sandbox
-- **Login admin com spinner infinito** — checar se `SUPABASE_API_URL` resolve DNS; testar `npm run test:db`
 - **Dev 404 em `/`** — EMFILE; usar `npm run dev` (polling) ou `npm run dev:clean`
 - **Imagens de produto** — data URL, limite ~750 KB após resize

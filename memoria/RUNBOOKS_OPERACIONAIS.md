@@ -101,6 +101,30 @@ Guias curtos para execucao rapida por agentes/devs, com foco em repetibilidade e
 - [ ] Executou fluxo de carrinho
 - [ ] Registrou incidente/correcao se houver
 
+## Runbook - Deploy / Atualização na VPS Hetzner (116.202.27.216)
+
+```bash
+ssh root@116.202.27.216
+export NVM_DIR="$HOME/.nvm" && source "$NVM_DIR/nvm.sh"
+cd /var/www/catalogo
+git pull origin master
+npm run build
+set -a && source .env.local && set +a
+pm2 restart catalogo-jonatas --update-env
+curl -sf http://127.0.0.1:3000/api/health
+```
+
+**ATENÇÃO:** Nunca executar `pm2 reload/restart --update-env` sem source do `.env.local` primeiro.
+O PM2 substitui o env do processo pelo env da sessão — se DATABASE_URL não estiver na sessão, o banco perde conexão e todas as queries falham com 500.
+
+## Runbook - Verificar logs de produção
+
+```bash
+ssh root@116.202.27.216
+export NVM_DIR="$HOME/.nvm" && source "$NVM_DIR/nvm.sh"
+pm2 logs catalogo-jonatas --lines 50 --nostream
+```
+
 ## Runbook - Dev local (404 / EMFILE)
 
 - Usar `npm run dev` na raiz do repositorio; abrir a URL **Local** impressa (porta pode nao ser 3000).

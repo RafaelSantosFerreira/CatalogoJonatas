@@ -94,6 +94,53 @@ responsavel: agentes
 
 > Atualizar esta secao sempre que houver incidente relevante.
 
+### 2026-06-04 - Migração SQLite → PostgreSQL + Deploy Hetzner
+
+- Contexto:
+  - Banco SQLite substituído por PostgreSQL local na VPS Hetzner (CX22, Ubuntu 24.04).
+  - Auth migrada de Supabase Auth para JWT local (`jsonwebtoken` + `bcryptjs`).
+  - ORM: Drizzle ORM com `node-postgres` via `DATABASE_URL` (connection string Postgres).
+- Stack atual (pós-migração):
+  - Dados e auth: PostgreSQL local (`catalogo_db`, usuário `catalogo_user`)
+  - 11 tabelas: admin_users, cart_items, company_settings, customers, order_items, orders, product_colors, product_sizes, product_volumes, products, whatsapp_logs
+  - Supabase: não mais utilizado
+- VPS Hetzner:
+  - IP: 116.202.27.216, SSH: root@116.202.27.216
+  - Node 20 via nvm, PM2, Nginx como reverse proxy na porta 80
+  - DATABASE_URL: `postgresql://catalogo_user:R@f@!!35@127.0.0.1:5432/catalogo_db` (TCP obrigatório)
+- Validação: `GET http://116.202.27.216/api/health` → `{"status":"ok"}`
+
+### 2026-06-04 - PM2 perde DATABASE_URL ao restartar sem env carregado
+
+- Sintoma:
+  - Login admin retorna `500` com "Erro interno no servidor." após restart do PM2.
+  - Logs PM2: `Failed query: select ... from admin_users` — banco sem conexão.
+- Causa raiz:
+  - `pm2 reload --update-env` executado em sessão SSH sem o `.env.local` sourced.
+  - O PM2 substitui o env do processo pelo env da sessão atual, que não tinha `DATABASE_URL`.
+- Correção aplicada:
+  - Sempre source o `.env.local` antes de qualquer operação PM2:
+    ```bash
+    cd /var/www/catalogo && set -a && source .env.local && set +a && pm2 restart catalogo-jonatas --update-env
+    ```
+- Validação:
+  - `curl -X POST http://116.202.27.216/api/admin-login -d '{"email":"...","password":"..."}' → access_token`
+
+### 2026-06-04 - Nova funcionalidade: gerência de pedidos no painel admin
+
+- Escopo:
+  - Aba "Pedidos" adicionada ao painel admin.
+  - Admin pode listar todos os pedidos, ver itens ao expandir linha, e alterar status (pending → confirmed → processing → completed → cancelled).
+  - IntegrityPanel: verifica divergências de preço entre order_items e orders.
+  - API orders/route.ts: recalcula preços server-side ao criar pedido (previne manipulação client-side).
+- Arquivos novos:
+  - `src/app/api/admin/orders/route.ts` — GET lista pedidos com itens
+  - `src/app/api/admin/orders/[id]/route.ts` — PATCH status
+  - `src/app/api/admin/validate-integrity/route.ts` — verifica integridade
+  - `src/components/admin/AdminOrdersPanel.tsx` — UI tabela de pedidos
+  - `src/components/admin/IntegrityPanel.tsx` — UI verificação
+- Commit: `1f80d38`
+
 ### 2026-05-11 - Login admin com credencial padrao "nao funciona" (diagnostico real: rede/DNS)
 
 - Sintoma:
