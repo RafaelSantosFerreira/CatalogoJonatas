@@ -3,7 +3,12 @@ import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { getSetupAdminCredentials } from "@/lib/env-setup-admin";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "dev-secret-change-in-production";
+function getJwtSecret(): string {
+  const s = process.env.JWT_SECRET;
+  if (!s && process.env.NODE_ENV === "production")
+    throw new Error("[auth] JWT_SECRET não definido em produção. Defina no .env.local do servidor.");
+  return s ?? "dev-secret-change-in-production";
+}
 
 export interface AdminJwtPayload {
   sub: string;
@@ -13,7 +18,7 @@ export interface AdminJwtPayload {
 }
 
 export function signAdminJwt(payload: { sub: string; email: string }): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: "7d" });
 }
 
 export async function getAdminUserIdFromRequest(request: Request): Promise<string | null> {
@@ -24,7 +29,7 @@ export async function getAdminUserIdFromRequest(request: Request): Promise<strin
 
   let decoded: AdminJwtPayload;
   try {
-    decoded = jwt.verify(token, JWT_SECRET) as AdminJwtPayload;
+    decoded = jwt.verify(token, getJwtSecret()) as AdminJwtPayload;
   } catch {
     return null;
   }

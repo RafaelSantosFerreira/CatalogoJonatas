@@ -1,6 +1,7 @@
 import {
   boolean,
   doublePrecision,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -82,7 +83,9 @@ export const cartItems = pgTable("cart_items", {
   product_internal_code: text("product_internal_code"),
   created_at: text("created_at").$defaultFn(() => new Date().toISOString()),
   updated_at: text("updated_at").$defaultFn(() => new Date().toISOString()),
-});
+}, (t) => [
+  index("cart_items_customer_id_idx").on(t.customer_id),
+]);
 
 export type OrderStatus = "pending" | "confirmed" | "processing" | "completed" | "cancelled";
 
@@ -102,7 +105,11 @@ export const orders = pgTable("orders", {
   customer_address: text("customer_address"),
   created_at: text("created_at").$defaultFn(() => new Date().toISOString()),
   updated_at: text("updated_at").$defaultFn(() => new Date().toISOString()),
-});
+}, (t) => [
+  index("orders_customer_id_idx").on(t.customer_id),
+  index("orders_status_idx").on(t.status),
+  index("orders_created_at_idx").on(t.created_at),
+]);
 
 export const orderItems = pgTable("order_items", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -123,7 +130,9 @@ export const orderItems = pgTable("order_items", {
   total_price: doublePrecision("total_price").notNull(),
   created_at: text("created_at").$defaultFn(() => new Date().toISOString()),
   updated_at: text("updated_at").$defaultFn(() => new Date().toISOString()),
-});
+}, (t) => [
+  index("order_items_order_id_idx").on(t.order_id),
+]);
 
 export const companySettings = pgTable("company_settings", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
@@ -165,10 +174,24 @@ export const whatsappLogs = pgTable("whatsapp_logs", {
   error_message: text("error_message"),
   response_body: jsonb("response_body"),
   request_payload: jsonb("request_payload"),
+  trace_id: text("trace_id"),
   sent_at: text("sent_at"),
   created_at: text("created_at").$defaultFn(() => new Date().toISOString()),
   updated_at: text("updated_at").$defaultFn(() => new Date().toISOString()),
 });
+
+export const orderStatusChanges = pgTable("order_status_changes", {
+  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),
+  order_id: text("order_id").notNull(),
+  old_status: text("old_status").notNull(),
+  new_status: text("new_status").notNull(),
+  changed_by: text("changed_by").notNull(),
+  reason: text("reason"),
+  changed_at: text("changed_at").notNull().$defaultFn(() => new Date().toISOString()),
+}, (t) => [
+  index("order_status_changes_order_id_idx").on(t.order_id),
+  index("order_status_changes_changed_by_idx").on(t.changed_by),
+]);
 
 export const adminUsers = pgTable("admin_users", {
   id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),

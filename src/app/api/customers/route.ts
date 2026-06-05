@@ -2,6 +2,7 @@ import { db, schema } from "@/db";
 import { eq } from "drizzle-orm";
 import { logAppError } from "@/lib/app-logger";
 import { z } from "zod";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const createSchema = z.object({
   full_name: z.string().min(1),
@@ -10,6 +11,11 @@ const createSchema = z.object({
 });
 
 export async function GET(request: Request) {
+  const rl = checkRateLimit({ request, key: "api:customers", windowMs: 60_000, max: 60 });
+  if (!rl.allowed) {
+    return Response.json({ error: "Muitas tentativas." }, { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } });
+  }
+
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
   if (!id) {
@@ -28,6 +34,11 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const rl = checkRateLimit({ request, key: "api:customers", windowMs: 60_000, max: 60 });
+  if (!rl.allowed) {
+    return Response.json({ error: "Muitas tentativas." }, { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } });
+  }
+
   let body: unknown;
   try {
     body = await request.json();

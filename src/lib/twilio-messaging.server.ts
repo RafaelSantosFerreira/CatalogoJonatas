@@ -73,6 +73,7 @@ async function postToTwilio(
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: formData.toString(),
+      signal: AbortSignal.timeout(15_000),
     });
 
     const httpStatus = response.status;
@@ -181,8 +182,9 @@ export async function saveWhatsAppLogToDb(params: {
   body?: string;
   result: TwilioSendResult;
   requestPayload: Record<string, unknown>;
+  traceId?: string;
 }): Promise<void> {
-  const { orderId, to, from, contentSid, contentVariables, body, result, requestPayload } = params;
+  const { orderId, to, from, contentSid, contentVariables, body, result, requestPayload, traceId } = params;
   try {
     await db.insert(schema.whatsappLogs).values({
       order_id: orderId ?? null,
@@ -197,6 +199,7 @@ export async function saveWhatsAppLogToDb(params: {
       error_message: result.error ?? null,
       response_body: result.responseBody ?? null,
       request_payload: requestPayload,
+      trace_id: traceId ?? null,
       sent_at: new Date().toISOString(),
     });
   } catch (logError) {

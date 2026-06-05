@@ -5,6 +5,16 @@ import { readStoredAdminTokens } from "@/lib/admin-bearer-storage";
 import { ClipboardList } from "lucide-react";
 import { toast } from "sonner";
 import type { OrderStatus } from "@/db/schema";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
   pending: "Pendente",
@@ -23,6 +33,7 @@ const STATUS_COLORS: Record<OrderStatus, string> = {
 };
 
 const ALL_STATUSES: OrderStatus[] = ["pending", "confirmed", "processing", "completed", "cancelled"];
+const CONFIRM_REQUIRED: OrderStatus[] = ["cancelled", "completed"];
 
 type OrderItem = {
   order_id: string;
@@ -43,12 +54,15 @@ type OrderRow = {
   items: OrderItem[];
 };
 
+type PendingChange = { orderId: string; newStatus: OrderStatus };
+
 export function AdminOrdersPanel() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [pendingChange, setPendingChange] = useState<PendingChange | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +91,7 @@ export function AdminOrdersPanel() {
     return () => { cancelled = true; };
   }, []);
 
-  async function handleStatusChange(orderId: string, newStatus: OrderStatus) {
+  async function applyStatusChange(orderId: string, newStatus: OrderStatus) {
     setUpdatingId(orderId);
     try {
       const token = readStoredAdminTokens()?.access;
@@ -91,7 +105,8 @@ export function AdminOrdersPanel() {
         body: JSON.stringify({ status: newStatus }),
       });
       if (!res.ok) {
-        toast.error("Erro ao atualizar status.");
+        const json = await res.json().catch(() => ({})) as { error?: string };
+        toast.error(json.error ?? "Erro ao atualizar status.");
         return;
       }
       setOrders((prev) =>
@@ -100,6 +115,14 @@ export function AdminOrdersPanel() {
       toast.success("Status atualizado.");
     } finally {
       setUpdatingId(null);
+    }
+  }
+
+  function handleStatusChange(orderId: string, newStatus: OrderStatus) {
+    if (CONFIRM_REQUIRED.includes(newStatus)) {
+      setPendingChange({ orderId, newStatus });
+    } else {
+      void applyStatusChange(orderId, newStatus);
     }
   }
 
@@ -208,6 +231,32 @@ export function AdminOrdersPanel() {
           </table>
         </div>
       )}
+
+      <AlertDialog open={!!pendingChange} onOpenChange={(open) => { if (!open) setPendingChange(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar alteração de status</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingChange?.newStatus === "cancelled"
+                ? "Tem certeza que deseja cancelar este pedido? Esta ação não pode ser desfeita."
+                : "Tem certeza que deseja marcar este pedido como concluído? Esta ação não pode ser desfeita."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingChange(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (pendingChange) {
+                  void applyStatusChange(pendingChange.orderId, pendingChange.newStatus);
+                  setPendingChange(null);
+                }
+              }}
+            >
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

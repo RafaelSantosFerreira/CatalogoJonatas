@@ -2,8 +2,12 @@ import { db, schema } from "@/db";
 import { eq, desc } from "drizzle-orm";
 import { logAppError } from "@/lib/app-logger";
 import type { WhatsAppLogStatus } from "@/db/schema";
+import { getAdminUserIdFromRequest } from "@/lib/verify-admin-request";
 
 export async function GET(request: Request) {
+  const adminId = await getAdminUserIdFromRequest(request);
+  if (!adminId) return Response.json({ error: "Não autorizado." }, { status: 403 });
+
   try {
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Number(searchParams.get("limit") ?? "50"), 100);

@@ -18,9 +18,18 @@ const whatsappPayloadSchema = z.object({
   useCompanyWhatsappTarget: z.boolean().optional(),
 });
 
+const INTERNAL_TOKEN = process.env.INTERNAL_API_TOKEN;
+
 export async function POST(request: Request) {
   const traceId = request.headers.get("x-trace-id") || createTraceId("apiwa");
   const flowSource = request.headers.get("x-flow-source") || "unknown";
+
+  const internalToken = request.headers.get("x-internal-token");
+  if (!internalToken || internalToken !== INTERNAL_TOKEN) {
+    logAppError("api/whatsapp.auth", new Error("Token interno inválido ou ausente"), { traceId, flowSource });
+    return Response.json({ success: false, error: "Não autorizado.", traceId }, { status: 401 });
+  }
+
   try {
     const rl = checkRateLimit({
       request,

@@ -2,6 +2,7 @@ import { db, schema } from "@/db";
 import { logAppError } from "@/lib/app-logger";
 import { z } from "zod";
 import { inArray } from "drizzle-orm";
+import { dispatchWhatsApp } from "@/lib/whatsapp-dispatch";
 
 const orderItemSchema = z.object({
   product_id: z.string().uuid(),
@@ -75,36 +76,45 @@ export async function POST(request: Request) {
 
   try {
     const orderId = crypto.randomUUID();
-    await db.insert(schema.orders).values({
-      id: orderId,
-      customer_id: orderData.customer_id,
-      status: "pending",
-      total_amount,
-      customer_name: orderData.customer_name ?? null,
-      customer_phone_country_code: orderData.customer_phone_country_code ?? null,
-      customer_phone_number: orderData.customer_phone_number ?? null,
-      customer_address: orderData.customer_address ?? null,
+
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.orders).values({
+        id: orderId,
+        customer_id: orderData.customer_id,
+        status: "pending",
+        total_amount,
+        customer_name: orderData.customer_name ?? null,
+        customer_phone_country_code: orderData.customer_phone_country_code ?? null,
+        customer_phone_number: orderData.customer_phone_number ?? null,
+        customer_address: orderData.customer_address ?? null,
+      });
+
+      await tx.insert(schema.orderItems).values(
+        calculatedItems.map((item) => ({
+          order_id: orderId,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          product_sku: item.product_sku ?? null,
+          product_image_url: item.product_image_url ?? null,
+          product_internal_code: item.product_internal_code ?? null,
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          total_price: item.total_price,
+          selected_color_id: item.selected_color_id ?? null,
+          selected_color_name: item.selected_color_name ?? null,
+          selected_size_id: item.selected_size_id ?? null,
+          selected_size_label: item.selected_size_label ?? null,
+          selected_volume_id: item.selected_volume_id ?? null,
+          selected_volume_label: item.selected_volume_label ?? null,
+        }))
+      );
     });
 
-    await db.insert(schema.orderItems).values(
-      calculatedItems.map((item) => ({
-        order_id: orderId,
-        product_id: item.product_id,
-        product_name: item.product_name,
-        product_sku: item.product_sku ?? null,
-        product_image_url: item.product_image_url ?? null,
-        product_internal_code: item.product_internal_code ?? null,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total_price: item.total_price,
-        selected_color_id: item.selected_color_id ?? null,
-        selected_color_name: item.selected_color_name ?? null,
-        selected_size_id: item.selected_size_id ?? null,
-        selected_size_label: item.selected_size_label ?? null,
-        selected_volume_id: item.selected_volume_id ?? null,
-        selected_volume_label: item.selected_volume_label ?? null,
-      }))
-    );
+    // Disparo fire-and-forget — não bloqueia a resposta ao cliente
+    dispatchWhatsApp({
+      orderId,
+      useCompanyTarget: true,
+    }).catch((e) => logAppError("api/orders.whatsapp", e, { orderId }));
 
     return Response.json({ id: orderId });
   } catch (e) {
