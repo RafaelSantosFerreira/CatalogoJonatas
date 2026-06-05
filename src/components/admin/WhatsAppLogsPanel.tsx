@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { readStoredAdminTokens } from "@/lib/admin-bearer-storage";
 
 interface WhatsAppLog {
   id: string;
@@ -289,9 +290,13 @@ function TestSendPanel({ onSent }: { onSent: () => void }) {
     setSending(true);
     setLastResult(null);
     try {
-      const res = await fetch("/api/whatsapp", {
+      const token = readStoredAdminTokens()?.access;
+      const res = await fetch("/api/admin/whatsapp-test", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           to: phone.trim(),
           contentVariables: { "1": "Teste", "2": "Pedido de teste via painel de logs" },
@@ -396,7 +401,10 @@ export function WhatsAppLogsPanel() {
     setError(null);
     try {
       const params = new URLSearchParams({ limit: "50", status: statusFilter });
-      const res = await fetch(`/api/whatsapp-logs?${params.toString()}`);
+      const token = readStoredAdminTokens()?.access;
+      const res = await fetch(`/api/whatsapp-logs?${params.toString()}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       const data = await res.json();
       if (data.success) {
         setLogs(data.data ?? []);

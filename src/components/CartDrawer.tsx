@@ -33,7 +33,6 @@ import { createTraceId, logAppInfo, logAppWarn } from "@/lib/app-logger";
 import {
   getWhatsAppUrl,
   getEmailUrl,
-  sendTwilioWhatsApp,
   hasTwilioConfigured,
 } from "@/lib/order-notification";
 import { toast } from "sonner";
@@ -145,36 +144,9 @@ export function CartDrawer() {
     const snapshotItems = [...items];
     const snapshotTotal = total;
 
-    /** Twilio: sempre tenta na API; a config fica no servidor (service role), pois o cliente
-     *  anônimo muitas vezes não recebe chaves no `useCompanySettings`. */
-    let twilioSent = false;
-    const twilioResult = await sendTwilioWhatsApp(customer, snapshotItems, snapshotTotal, orderId, traceId);
-    if (twilioResult.success) {
-      twilioSent = true;
-      logAppInfo("cart.finalize.twilio.ok", "WhatsApp enviado", {
-        traceId: twilioResult.traceId,
-        orderId,
-      });
-      toast.success("Pedido enviado para o WhatsApp da empresa! 🎉");
-    } else {
-      logAppWarn("cart.finalize.twilio.fail", "Falha no envio WhatsApp", {
-        traceId: twilioResult.traceId,
-        orderId,
-        error: twilioResult.error,
-        httpStatus: twilioResult.httpStatus,
-      });
-      if (process.env.NODE_ENV === "development") {
-        console.warn("/api/whatsapp:", twilioResult.error);
-      }
-      if (settings?.whatsapp_notifications_enabled) {
-        toast.message(
-          twilioResult.error
-            ? `Envio automático: ${twilioResult.error} — use o link manual no próximo passo, se quiser.`
-            : "Envio automático ao WhatsApp não disponível — use o link abaixo.",
-          { duration: 6000 }
-        );
-      }
-    }
+    // WhatsApp é despachado automaticamente pelo servidor em POST /api/orders
+    const twilioSent = settings?.whatsapp_notifications_enabled ?? false;
+    logAppInfo("cart.finalize.whatsapp", "WhatsApp despachado pelo servidor", { traceId, orderId });
 
     const whatsappUrl = settings
       ? getWhatsAppUrl(settings, customer, snapshotItems, snapshotTotal, orderId)
